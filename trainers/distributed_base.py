@@ -25,7 +25,7 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
 
-@ray.remote(num_gpus=1)
+@ray.remote(num_gpus=0.5)
 class DistributedTrainer:
     def __init__(self, model_path: str,
                  state_dict: dict,
@@ -106,7 +106,7 @@ class DistributedTrainer:
         print(f"Client {client_idx} Scheduler step: ", self.scheduler.get_last_lr(), "Round: ", round_idx)
         for epoch in range(self.epochs):
             batch_loss = []
-            for batch_idx, (data, labels) in tqdm(enumerate(client_dataloader), total=len(client_dataloader)):
+            for batch_idx, (data, labels) in enumerate(client_dataloader):
                 data, labels = data.to(device), labels.to(device)
                 optimizer.zero_grad()
                 output = self.model(data)

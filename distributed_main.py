@@ -176,7 +176,7 @@ class Experiment:
                                                          criterion=nn.CrossEntropyLoss(),
                                                          optimizer_name=client_optimizer,
                                                          epochs=epochs, scheduler='multisteplr',
-                                                         **{'lr': lr, 'milestones': [75, 150], 'gamma': 0.1}) for _ \
+                                                         **{'lr': lr, 'milestones': [300, 500], 'gamma': 0.1}) for _ \
                                in range(client_num_per_round)]
         elif trainer == 'ultralytics':
             global_model = DetectionModel(cfg=model)
@@ -202,24 +202,27 @@ class Experiment:
                                         eps=1e-3)
 
         for round_idx in tqdm(range(0, comm_round)):
-            updates = []
-            weights = []
-            local_metrics = []
+            # updates = []
+            # weights = []
+            # local_metrics = []
+            remote_steps = []
             for i, client_trainer in enumerate(client_trainers):
                 sampled_clients_idx = np.random.choice(len(client_datasets), client_num_per_round, replace=False)
                 client_trainer.update.remote(global_model.state_dict(), scheduler.state_dict())
-                update, weight, m = ray.get(client_trainer.step.remote(sampled_clients_idx[i],
-                                                                    client_dataset_refs[sampled_clients_idx[i]],
-                                                                    round_idx,
-                                                                    device=device))
-                updates.append(update)
-                weights.append(weight)
-                local_metrics.append(m)
-
+                remote_steps.append(client_trainer.step.remote(sampled_clients_idx[i],
+                                                               client_dataset_refs[sampled_clients_idx[i]],
+                                                               round_idx,
+                                                               device=device))
+                # updates.append(update)
+                # weights.append(weight)
+                # local_metrics.append(m)
+            updates, weights, local_metrics = tuple(map(list, zip(*ray.get(remote_steps))))
+            local_metrics_avg = {key: sum(d[key] for d in local_metrics) / len(local_metrics) for key in
+                                local_metrics[0]}
             state_n = aggregator.step(updates, weights, round_idx)
             global_model.load_state_dict(state_n)
             scheduler.step()
-            wandb.log(local_metrics[0], step=round_idx)
+            wandb.log(local_metrics_avg, step=round_idx)
             if round_idx % test_frequency == 0:
                 metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes)
                 for k, v in metrics.items():
