@@ -30,7 +30,7 @@ from trainers.distributed_base import DistributedTrainer
 os.environ['WANDB_START_METHOD'] = 'thread'
 
 config = configparser.ConfigParser()
-config.read('config_widar.yml')
+config.read('config.yml')
 
 ray.init()
 
@@ -169,7 +169,7 @@ class Experiment:
             global_model = torch.load(model)
             from scorers.classification_evaluator import evaluate
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
-                                                             milestones=[75, 150],
+                                                             milestones=[300, 500],
                                                              gamma=0.1)
             client_trainers = [DistributedTrainer.remote(model_path=model,
                                                          state_dict=global_model.state_dict(),
