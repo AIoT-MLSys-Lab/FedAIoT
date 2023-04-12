@@ -1,18 +1,21 @@
 [DEFAULT]
-model = models/resnet_group_norm.pt
-dataset = cifar10
+model = models/widar_resnet18.pt
+dataset = widar
 data_dir = ../data/
-client_num_in_total = 100
-client_num_per_round = 10
+client_num_in_total = 30
+client_num_per_round = 6
 gpu_worker_num = 8
 batch_size = 20
 client_optimizer = sgd
 lr = 0.01
 wd = 0.001
 epochs = 1
-fl_algorithm = FedAvg_without_opt_reinit
+fl_algorithm = fedaiot_distributed
 comm_round = 1500
-test_frequency = 10
+test_frequency = 5
 server_optimizer = sgd
 server_lr = 1
 alpha = 0.1
+partition_type = dirichlet
+device=cuda
+trainer = BaseTrainer
