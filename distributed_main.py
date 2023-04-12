@@ -169,7 +169,7 @@ class Experiment:
             global_model = torch.load(model)
             from scorers.classification_evaluator import evaluate
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
-                                                             milestones=[300, 500],
+                                                             milestones=[150, 300],
                                                              gamma=0.1)
             client_trainers = [DistributedTrainer.remote(model_path=model,
                                                          state_dict=global_model.state_dict(),
@@ -202,23 +202,30 @@ class Experiment:
                                         eps=1e-3)
 
         for round_idx in tqdm(range(0, comm_round)):
-            # updates = []
-            # weights = []
-            # local_metrics = []
             remote_steps = []
+
+            # Select random clients for each round
+            sampled_clients_idx = np.random.choice(len(client_datasets), client_num_per_round, replace=False)
+
             for i, client_trainer in enumerate(client_trainers):
-                sampled_clients_idx = np.random.choice(len(client_datasets), client_num_per_round, replace=False)
+                # Update the remote client_trainer with the latest global model and scheduler state
                 client_trainer.update.remote(global_model.state_dict(), scheduler.state_dict())
-                remote_steps.append(client_trainer.step.remote(sampled_clients_idx[i],
-                                                               client_dataset_refs[sampled_clients_idx[i]],
-                                                               round_idx,
-                                                               device=device))
-                # updates.append(update)
-                # weights.append(weight)
-                # local_metrics.append(m)
-            updates, weights, local_metrics = tuple(map(list, zip(*ray.get(remote_steps))))
+
+                # Perform a remote training step on the client_trainer
+                remote_step = client_trainer.step.remote(sampled_clients_idx[i],
+                                                         client_dataset_refs[sampled_clients_idx[i]],
+                                                         round_idx,
+                                                         device=device)
+                remote_steps.append(remote_step)
+
+            # Retrieve remote steps results
+            updates, weights, local_metrics = zip(*ray.get(remote_steps))
+
+            # Calculate the average local metrics
             local_metrics_avg = {key: sum(d[key] for d in local_metrics) / len(local_metrics) for key in
-                                local_metrics[0]}
+                                 local_metrics[0]}
+
+            # Update the global model using the aggregator
             state_n = aggregator.step(updates, weights, round_idx)
             global_model.load_state_dict(state_n)
             scheduler.step()
