@@ -61,9 +61,10 @@ class DistributedTrainer:
             # weight_decay=5e-4,
         )
         # print(TorchRepo.name2cls("linearlr", torch.optim.lr_scheduler.LRScheduler))
-        self.scheduler = TorchComponentRepository.get_class_by_name(scheduler, torch.optim.lr_scheduler.LRScheduler)(self.optimizer,
-                                                                                                                     gamma=gamma,
-                                                                                                                     milestones=milestones)
+        self.scheduler = TorchComponentRepository.get_class_by_name(scheduler, torch.optim.lr_scheduler.LRScheduler)(
+            self.optimizer,
+            gamma=gamma,
+            milestones=milestones)
         # self.scheduler = lr_scheduler.MultiStepLR(self.optimizer, gamma=0.1, milestones=[75, 125])
 
     def update(self, model_params, scheduler_params):
