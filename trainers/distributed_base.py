@@ -3,9 +3,7 @@ import logging
 import numpy as np
 import ray
 import torch
-from tqdm import tqdm
 
-from aggregators.optreo import OptRepo
 from partition.utils import IndexedSubset
 
 
@@ -37,7 +35,7 @@ class DistributedTrainer:
                  scheduler='LinearLR', gamma=1, milestones=[],
                  epochs=1, ):
         set_seed(1)
-        from aggregators.Repo import TorchRepo
+        from aggregators.torchcomponentrepository import TorchComponentRepository
         self.scheduler = None
         from models.wisdm import LSTM_NET
         LSTM_NET
@@ -55,7 +53,7 @@ class DistributedTrainer:
         self.num_workers = 1
         self.epochs = epochs
         self.schedule = list(range(75, 300, 75))
-        self.optimizer = OptRepo.name2cls(self.optimizer_name)(
+        self.optimizer = TorchComponentRepository.get_class_by_name(self.optimizer_name, torch.optim.Optimizer)(
             self.model.parameters(),
             lr=self.lr,
 
@@ -63,9 +61,9 @@ class DistributedTrainer:
             # weight_decay=5e-4,
         )
         # print(TorchRepo.name2cls("linearlr", torch.optim.lr_scheduler.LRScheduler))
-        self.scheduler = TorchRepo.name2cls(scheduler, torch.optim.lr_scheduler.LRScheduler)(self.optimizer,
-                                                                                             gamma=gamma,
-                                                                                             milestones=milestones)
+        self.scheduler = TorchComponentRepository.get_class_by_name(scheduler, torch.optim.lr_scheduler.LRScheduler)(self.optimizer,
+                                                                                                                     gamma=gamma,
+                                                                                                                     milestones=milestones)
         # self.scheduler = lr_scheduler.MultiStepLR(self.optimizer, gamma=0.1, milestones=[75, 125])
 
     def update(self, model_params, scheduler_params):
