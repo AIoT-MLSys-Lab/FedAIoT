@@ -1,0 +1,14 @@
+name,code,fcode
+walking,A,0
+jogging,B,1
+stairs,C,2
+sitting,D,3
+standing,E,4
+typing,F,5
+teeth,G,6
+drinking,K,8
+eating,L,7
+writing,Q,9
+clapping,R,10
+folding,S,11
+

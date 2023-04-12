@@ -1,0 +1,18 @@
+[DEFAULT]
+model = models/resnet_group_norm.pt
+dataset = cifar10
+data_dir = ../data/
+client_num_in_total = 100
+client_num_per_round = 10
+gpu_worker_num = 8
+batch_size = 20
+client_optimizer = sgd
+lr = 0.01
+wd = 0.001
+epochs = 1
+fl_algorithm = FedAvg_without_opt_reinit
+comm_round = 1500
+test_frequency = 10
+server_optimizer = sgd
+server_lr = 1
+alpha = 0.1
