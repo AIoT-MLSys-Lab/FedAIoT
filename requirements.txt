@@ -1,0 +1,15 @@
+torch>=1.13.1
+numpy>=1.24.2
+pandas>=1.5.3
+tqdm>=4.64.1
+altair>=4.1.0
+matplotlib>=3.7.0
+torchvision>=0.14.1
+pillow>=9.4.0
+ultralytics>=8.0.57
+scikit-learn>=1.2.1
+click>=8.0.4
+wandb>=0.14.0
+torchmetrics>=0.11.2
+ray>=2.3.0
+fire>=0.5.0
