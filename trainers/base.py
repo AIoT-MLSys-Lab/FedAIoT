@@ -3,7 +3,7 @@ import logging
 import torch
 import wandb
 
-from aggregators.optreo import OptRepo
+from aggregators.torchcomponentrepository import TorchComponentRepository
 
 
 class BaseTrainer:
@@ -36,7 +36,7 @@ class BaseTrainer:
         self.num_workers = 1
         self.epochs = epochs
         self.schedule = list(range(75, 300, 75))
-        self.optimizer = OptRepo.name2cls(self.optimizer_name)(
+        self.optimizer = TorchComponentRepository.get_class_by_name(self.optimizer_name, torch.optim.Optimizer)(
             self.model.parameters(),
             lr=self.lr,
             # momentum=0.9,

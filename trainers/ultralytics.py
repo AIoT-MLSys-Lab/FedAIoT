@@ -10,7 +10,8 @@ from ultralytics.yolo.data import YOLODataset
 from ultralytics.yolo.utils.torch_utils import de_parallel
 from ultralytics.yolo.v8.detect.train import Loss
 
-from aggregators.optreo import OptRepo
+
+from aggregators.torchcomponentrepository import TorchComponentRepository
 from loaders.visdrone import YOLO_HYPERPARAMETERS
 
 
@@ -39,7 +40,7 @@ class UltralyticsYoloTrainer:
         self.criterion = Loss(de_parallel(self.model.to(device)))
         self.loss_names = ['Loss']
         self.shuffle = shuffle
-        self.optimizer = OptRepo.name2cls(self.optimizer_name)(
+        self.optimizer = TorchComponentRepository.get_class_by_name(self.optimizer_name, torch.optim.Optimizer)(
             self.model.parameters(),
             lr=self.lr,
         )

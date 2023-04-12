@@ -3,7 +3,8 @@ from typing import Union
 import numpy as np
 import torch
 
-from aggregators.optreo import OptRepo
+
+from aggregators.torchcomponentrepository import TorchComponentRepository
 
 
 class FederatedAveraging:
@@ -16,7 +17,7 @@ class FederatedAveraging:
         self.global_model = global_model
         self.server_optimizer = server_optimizer
         self.server_lr = server_lr
-        self.optimizer = OptRepo.name2cls(self.server_optimizer)(
+        self.optimizer = TorchComponentRepository.get_class_by_name(self.server_optimizer, torch.optim.Optimizer)(
             filter(lambda p: p.requires_grad, global_model.parameters()),
             lr=server_lr,
         )
