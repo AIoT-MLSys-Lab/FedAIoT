@@ -1,6 +1,7 @@
 import os.path
 import shutil
 from pathlib import Path
+from typing import List, Tuple, Dict, Any, Union
 
 import pandas as pd
 import torch
@@ -57,7 +58,19 @@ NAMES = ('pedestrian', 'person', 'car', 'van', 'bus', 'truck', 'motor', 'bicycle
 
 
 class VisDroneDataset(Dataset):
-    def __init__(self, root, hyp, augment=True):
+    """
+    A PyTorch Dataset class for the VisDrone dataset.
+    """
+
+    def __init__(self, root: str, hyp: Dict[str, Any], augment: bool = True):
+        """
+        Initialize the dataset.
+
+        Args:
+            root (str): Path to the root directory of the dataset.
+            hyp (Dict[str, Any]): Hyperparameters dictionary.
+            augment (bool, optional): Whether to apply data augmentation. Defaults to True.
+        """
         self.root = root
         self.dataset = LoadImagesAndLabels(
             path=root,
@@ -66,15 +79,37 @@ class VisDroneDataset(Dataset):
             # rect=True
         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, Any]:
+        """
+        Get an item from the dataset.
+
+        Args:
+            index (int): Index of the item.
+
+        Returns:
+            Tuple[torch.Tensor, Any]: A tuple containing the image tensor and the label.
+        """
         dt = self.dataset[index]
         return dt[0].float() / 255.0, dt[1]
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Get the length of the dataset.
+
+        Returns:
+            int: The number of items in the dataset.
+        """
         return len(self.dataset)
 
 
-def convert_visdrone_to_yolo_format(visdrone_folder, output_folder):
+def convert_visdrone_to_yolo_format(visdrone_folder: str, output_folder: str) -> None:
+    """
+    Convert VisDrone dataset to YOLOv5 format.
+
+    Args:
+        visdrone_folder (str): Path to the VisDrone dataset folder.
+        output_folder (str): Path to the output folder where the converted dataset will be saved.
+    """
     visdrone_folder = Path(visdrone_folder)
     output_folder = Path(output_folder)
 
@@ -115,14 +150,38 @@ def convert_visdrone_to_yolo_format(visdrone_folder, output_folder):
                         f.write(f"{class_id} {x_center} {y_center} {width} {height}\n")
 
 
-def collate_fn(batch):
+def collate_fn(batch: List[Tuple[torch.Tensor, torch.Tensor, str, Tuple[int, int]]]) \
+        -> Tuple[torch.Tensor, torch.Tensor, List[str], Tuple[Tuple[int, int], ...]]:
+    """
+    Custom collate function for DataLoader.
+
+    Args:
+        batch (List[Tuple[torch.Tensor, torch.Tensor, str, Tuple[int, int]]]): List of tuples, each containing an image tensor, label tensor, image path, and a tuple of image dimensions.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor, List[str], Tuple[Tuple[int, int], ...]]: A tuple containing stacked image tensors, concatenated label tensors, list of image paths, and a tuple of image dimensions.
+    """
     im, label, path, shapes = zip(*batch)  # transposed
     for i, lb in enumerate(label):
         lb[:, 0] = i  # add target image index for build_targets()
     return torch.stack(im, 0).float(), torch.cat(label, 0), path, shapes
 
 
-def load_dataset(root="datasets/visdrone/yolo_format", augment=False, hyp=YOLO_HYPERPARAMETERS):
+def load_dataset(root: str = "datasets/visdrone/yolo_format",
+                 augment: bool = False,
+                 hyp: Dict[str, Any] = YOLO_HYPERPARAMETERS) \
+        -> Dict[str, Union[YOLODataset, Dict[str, List[int]], Dict[str, Dict[int, List[int]]]]]:
+    """
+    Load the VisDrone dataset with YOLO format.
+
+    Args:
+        root (str, optional): Path to the root directory of the dataset. Defaults to "datasets/visdrone/yolo_format".
+        augment (bool, optional): Whether to apply data augmentation. Defaults to False.
+        hyp (Dict[str, Any], optional): Hyperparameters dictionary. Defaults to YOLO_HYPERPARAMETERS.
+
+    Returns:
+        Dict[str, Union[YOLODataset, Dict[str, List[int]], Dict[str, Dict[int, List[int]]]]]: A dictionary containing train, val, and test datasets, client_mapping, and split information.
+    """
     dataset_train = YOLODataset(
         img_path=os.path.join(root, 'train'),
         hyp=hyp,

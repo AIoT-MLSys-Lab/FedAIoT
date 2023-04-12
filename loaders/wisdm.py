@@ -2,6 +2,7 @@ import os.path
 from typing import Mapping
 
 import numpy as np
+import pandas
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
@@ -11,31 +12,69 @@ from partition.utils import train_test_split, make_split
 
 
 class WISDMDataset(Dataset):
+    """
+    A PyTorch Dataset class for the WISDM dataset.
+    """
+
     def __init__(self, data: Mapping[str, list[np.ndarray | int]]):
+        """
+        Initialize the dataset with data mapping.
+        Args:
+            data (Mapping[str, list[np.ndarray | int]]): A dictionary containing the data and targets.
+        """
         self.data = data
         self.targets = self.data['Y']
 
     def __getitem__(self, index):
-        try:
-            return torch.tensor(self.data['X'][index], dtype=torch.float), torch.tensor(self.data['Y'][index])
-        except IndexError as e:
-            print("index = {}".format(index))
-            print(e)
-            print(len(self.data['X']))
-            print(len(self.data['Y']))
+        """
+        Get an item from the dataset by index.
+        Args:
+            index (int): The index of the item to retrieve.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: The data and target tensors for the specified index.
+        """
+        return torch.tensor(self.data['X'][index], dtype=torch.float), torch.tensor(self.data['Y'][index])
 
     def __len__(self):
+        """
+        Get the length of the dataset.
+
+        Returns:
+            int: The length of the dataset.
+        """
         return len(self.data['Y'])
 
 
-def define_cols(df, prefix='acc'):
+def define_cols(df: pandas.DataFrame, prefix='acc'):
+    """
+    Define columns in the DataFrame and drop the 'null' column.
+
+    Args:
+        df (pandas.DataFrame): The input DataFrame.
+        prefix (str, optional): The prefix for the x, y, and z columns. Defaults to 'acc'.
+
+    Returns:
+        pandas.DataFrame: The DataFrame with columns renamed and the 'null' column dropped.
+    """
     columns = ['subject', 'activity', 'timestamp', f'x_{prefix}', f'y_{prefix}', f'z_{prefix}', 'null']
     df.columns = columns
     df = df.drop('null', axis=1)
     return df
 
 
-def filter_merge_interval(dfa, dfg, act_df):
+def filter_merge_interval(dfa: pandas.DataFrame, dfg: pandas.DataFrame, act_df: pandas.DataFrame):
+    """
+    Filter and merge accelerometer and gyroscope DataFrames based on timestamps and activity codes.
+
+    Args:
+        dfa (pandas.DataFrame): The accelerometer DataFrame.
+        dfg (pandas.DataFrame): The gyroscope DataFrame.
+        act_df (pandas.DataFrame): The activity DataFrame.
+
+    Returns:
+        pandas.DataFrame: The merged and filtered DataFrame.
+    """
     t0_a = dfa['timestamp'].min()
     t0_g = dfg['timestamp'].min()
     t1_a = dfa['timestamp'].max()
@@ -57,7 +96,17 @@ def filter_merge_interval(dfa, dfg, act_df):
     return df
 
 
-def process_dataset(act_df, data_path):
+def process_dataset(act_df: pandas.DataFrame, data_path: str):
+    """
+    Process the WISDM dataset by reading accelerometer and gyroscope data and merging them.
+
+    Args:
+        act_df (pandas.DataFrame): The activity DataFrame.
+        data_path (str): The path to the directory containing the dataset.
+
+    Returns:
+        pandas.DataFrame: The concatenated and merged DataFrame of accelerometer and gyroscope data.
+    """
     dfs = []
     for i in tqdm(range(1600, 1651)):
         df_wa = define_cols(
@@ -72,6 +121,15 @@ def process_dataset(act_df, data_path):
 
 
 def normalize_data(df):
+    """
+    Normalize the data in the DataFrame.
+
+    Args:
+        df (pandas.DataFrame): The input DataFrame.
+
+    Returns:
+        pandas.DataFrame: The normalized DataFrame.
+    """
     cols = [f'{axis}_{sensor}' for axis in ['x', 'y', 'z'] for sensor in ['acc', 'gyro']]
     for col in tqdm(cols):
         df[col] = (df[col] - df[col].mean()) / df[col].std()
@@ -79,6 +137,15 @@ def normalize_data(df):
 
 
 def get_processed_dataframe(reprocess=False):
+    """
+    Load or reprocess the processed WISDM dataset.
+
+    Args:
+        reprocess (bool, optional): Whether to reprocess the dataset. Defaults to False.
+
+    Returns:
+        pandas.DataFrame: The processed DataFrame.
+    """
     if os.path.exists('datasets/wisdm/processed.csv') and not reprocess:
         return pd.read_csv('datasets/wisdm/processed.csv')
     act_df = pd.read_csv('datasets/wisdm/activity_key_filtered.txt')
@@ -89,6 +156,18 @@ def get_processed_dataframe(reprocess=False):
 
 
 def create_dataset(df, clients=None, window=200, overlap=0.5):
+    """
+    Create a dataset from the input DataFrame based on the specified parameters.
+
+    Args:
+        df (pandas.DataFrame): The input DataFrame.
+        clients (list, optional): The list of client ids. Defaults to None.
+        window (int, optional): The window size for segmenting data. Defaults to 200.
+        overlap (float, optional): The overlap ratio between windows. Defaults to 0.5.
+
+    Returns:
+        tuple: A tuple containing a dictionary with 'X' and 'Y' keys, and a dictionary with client indices.
+    """
     if clients is None:
         clients = list(range(1600, 1651))
     c_idxs = {}
@@ -112,6 +191,17 @@ def create_dataset(df, clients=None, window=200, overlap=0.5):
 
 
 def split_dataset(data: dict, client_mapping_train: dict, client_mapping_test: dict):
+    """
+    Split the dataset into train and test sets based on the client mappings.
+
+    Args:
+        data (dict): The input dataset as a dictionary with 'X' and 'Y' keys.
+        client_mapping_train (dict): A dictionary containing the client indices for the training set.
+        client_mapping_test (dict): A dictionary containing the client indices for the test set.
+
+    Returns:
+        tuple: A tuple containing the train and test WISDMDatasets, and a dictionary with train and test mappings.
+    """
     all_train, mapping_train = make_split(client_mapping_train)
     all_test, mapping_test = make_split(client_mapping_test)
 
@@ -120,8 +210,19 @@ def split_dataset(data: dict, client_mapping_train: dict, client_mapping_test: d
     return WISDMDataset(train_data), WISDMDataset(test_data), {'train': mapping_train, 'test': mapping_test}
 
 
-
 def load_dataset(window=200, overlap=0.5, reprocess=True, split=0.8):
+    """
+    Load the WISDM dataset, either from disk or by reprocessing it based on the specified parameters.
+
+    Args:
+        window (int, optional): The window size for segmenting data. Defaults to 200.
+        overlap (float, optional): The overlap ratio between windows. Defaults to 0.5.
+        reprocess (bool, optional): Whether to reprocess the dataset. Defaults to True.
+        split (float, optional): The ratio for the train/test split. Defaults to 0.8.
+
+    Returns:
+        dict: A dictionary containing the full dataset, train and test datasets, client mapping, and split.
+    """
     if os.path.exists('datasets/wisdm/wisdm.dt') and not reprocess:
         return torch.load('datasets/wisdm/wisdm.dt')
     processed_df = get_processed_dataframe(reprocess=reprocess)
