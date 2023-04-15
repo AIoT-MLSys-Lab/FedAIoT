@@ -38,8 +38,9 @@ class DistributedTrainer:
         from aggregators.torchcomponentrepository import TorchComponentRepository
         self.scheduler = None
         from models.wisdm import LSTM_NET
+        from models.ut_har import UT_HAR_ResNet18
         LSTM_NET
-        self.model = torch.load(model_path)
+        self.model = UT_HAR_ResNet18()
         self.model.load_state_dict(state_dict)
         self.criterion = criterion
         self.optimizer_name = optimizer_name
@@ -80,7 +81,8 @@ class DistributedTrainer:
         return self.model.cpu().state_dict()
 
     def step(self, client_idx, client_data, round_idx, device='cuda'):
-        ray.logger.log(level=3, msg=type(client_data))
+        if len(client_data) < self.batch_size:
+            self.batch_size = len(client_data)
         client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
                                     indices=ray.get(client_data['indices']))
         weight = len(client_data)
@@ -106,6 +108,8 @@ class DistributedTrainer:
         for epoch in range(self.epochs):
             batch_loss = []
             for batch_idx, (data, labels) in enumerate(client_dataloader):
+                if len(labels) <= 1:
+                    continue
                 data, labels = data.to(device), labels.to(device)
                 optimizer.zero_grad()
                 output = self.model(data)

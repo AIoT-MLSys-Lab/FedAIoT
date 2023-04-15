@@ -17,10 +17,12 @@ import loaders.cifar10
 import loaders.visdrone
 import loaders.widar
 import loaders.wisdm
+import loaders.ut_har
 import wandb
 from aggregators.base import FederatedAveraging
 from loaders.visdrone import YOLO_HYPERPARAMETERS
 from models.wisdm import LSTM_NET
+from models.ut_har import *
 from partition.centralized import CentralizedPartition
 from partition.dirichlet import DirichletPartition
 from partition.uniform import UniformPartition
@@ -120,6 +122,9 @@ class Experiment:
         elif dataset_name == 'visdrone':
             dataset = loaders.visdrone.load_dataset()
             num_classes = 12
+        elif dataset_name == 'ut_har':
+            dataset = loaders.ut_har.load_dataset()
+            num_classes = 7
         else:
             return
         if partition_type == 'user' and dataset_name in {'wisdm', 'widar', 'visdrone'}:

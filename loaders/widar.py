@@ -80,7 +80,10 @@ def filter_data(datum: Tuple[np.ndarray, List[int]], selected_classes: List[int]
     return filtered_array, filtered_classes
 
 
-def split_dataset(data: List[Tuple[np.ndarray, int]], client_mapping_train: Dict[int, List[int]], client_mapping_test: Dict[int, List[int]]) -> Tuple[WidarDataset, WidarDataset, Dict[str, Dict[int, List[int]]]]:
+def split_dataset(data: List[Tuple[np.ndarray, int]],
+                  client_mapping_train: Dict[int, List[int]],
+                  client_mapping_test: Dict[int, List[int]]) \
+        -> Tuple[WidarDataset, WidarDataset, Dict[str, Dict[int, List[int]]]]:
     """
     Split the dataset into train and test sets based on the client mappings.
 
@@ -100,7 +103,7 @@ def split_dataset(data: List[Tuple[np.ndarray, int]], client_mapping_train: Dict
     return WidarDataset(train_data), WidarDataset(test_data), {'train': mapping_train, 'test': mapping_test}
 
 
-def load_dataset(split=[x for x in list(range(0, 16)) if x not in [0, 1, 2, 3, 15]],
+def load_dataset(split=[x for x in list(range(0, 17)) if x not in [0, 1, 2, 3, 15]],
                  selected_classes=[0, 3, 7, 10, 12, 14, 15, 16, 19],
                  reprocess=False):
     """
@@ -114,7 +117,7 @@ def load_dataset(split=[x for x in list(range(0, 16)) if x not in [0, 1, 2, 3, 1
     Returns:
         Dict[str, Union[WidarDataset, Dict[int, List[int]]]]: Dictionary containing the full_dataset, train and test datasets, client_mapping, and split information.
     """
-    path = 'datasets/widar/'
+    path = 'datasets/widar/federated'
 
     data = os.listdir(path)
     dtt = []
