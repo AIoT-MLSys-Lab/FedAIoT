@@ -8,25 +8,26 @@ from datetime import datetime
 import fire
 import numpy as np
 import ray
-import torch
-from torch import nn
 from tqdm import tqdm
 from ultralytics.nn.tasks import DetectionModel
 
 import loaders.cifar10
+import loaders.ut_har
 import loaders.visdrone
 import loaders.widar
 import loaders.wisdm
-import loaders.ut_har
 import wandb
 from aggregators.base import FederatedAveraging
+from algorithms.fedavg_base import fed_avg_baseline
 from loaders.visdrone import YOLO_HYPERPARAMETERS
-from models.wisdm import LSTM_NET
 from models.ut_har import *
+from models.utils import load_model
+from models.wisdm import LSTM_NET
 from partition.centralized import CentralizedPartition
 from partition.dirichlet import DirichletPartition
 from partition.uniform import UniformPartition
 from partition.user_index import UserPartition
+from partition.utils import compute_client_data_distribution, get_html_plots
 from trainers.distributed_base import DistributedTrainer
 
 os.environ['WANDB_START_METHOD'] = 'thread'
@@ -106,9 +107,6 @@ class Experiment:
 
         device = config['DEFAULT']['device']
         set_seed(1)
-        print(json.dumps(args, sort_keys=True, indent=4))
-        print(config['DEFAULT'].get('partition_type'))
-
         if dataset_name == 'cifar10':
             dataset = loaders.cifar10.load_dataset()
             num_classes = 10
@@ -144,8 +142,6 @@ class Experiment:
         else:
             raise ValueError('partition type not supported')
         client_datasets = partition(dataset['train'])
-        # data_distribution, class_distribution = compute_client_data_distribution(datasets=client_datasets,
-        #                                                                          num_classes=num_classes)
         wandb.init(
             # mode='disabled',
             project='ray_fl_dev_v2',
@@ -155,28 +151,24 @@ class Experiment:
                  f'{server_lr}_{alpha}_{datetime.now().strftime("%Y%m%d_%H%M%S")}',
             config=args,
         )
+        if dataset_name != 'visdrone':
+            data_distribution, class_distribution = compute_client_data_distribution(datasets=client_datasets,
+                                                                                     num_classes=num_classes)
+            class_dist, sample_dist = get_html_plots(data_distribution, class_distribution)
+            wandb.log({'class_dist': wandb.Html(class_dist, inject=False), 'sample_dist': wandb.Html(sample_dist, inject=False)},
+                      step=0)
 
-        # class_dist, sample_dist = get_html_plots(data_distribution, class_distribution)
-        # wandb.log({'class_dist': wandb.Html(class_dist, inject=False), 'sample_dist': wandb.Html(sample_dist, inject=False)},
-        #           step=0)
-        # partition = CentralizedPartition()
-        # partition = DirichletPartition(client_num_in_total, alpha=alpha)
-
-        # global_model = resnet.ResNet(resnet.BasicBlock,
-        #                              [2, 2, 2, 2],
-        #                              num_classes=10,
-        #                              norm_layer=ResNetCustomNorm)
         data_ref = ray.put(client_datasets[-1].dataset)
         client_dataset_refs = [{'dataset': data_ref, 'indices': ray.put(client_dataset.indices)} for client_dataset in
                                client_datasets]
-        # client_dataset_refs = [ray.put(client_dataset) for client_dataset in client_datasets]
+        global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
         if trainer == 'BaseTrainer':
-            global_model = torch.load(model)
             from scorers.classification_evaluator import evaluate
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
                                                              milestones=[150, 300],
                                                              gamma=0.1)
-            client_trainers = [DistributedTrainer.remote(model_path=model,
+            client_trainers = [DistributedTrainer.remote(model_name=model,
+                                                         dataset_name=dataset_name,
                                                          state_dict=global_model.state_dict(),
                                                          criterion=nn.CrossEntropyLoss(),
                                                          optimizer_name=client_optimizer,
@@ -207,33 +199,14 @@ class Experiment:
                                         eps=1e-3)
 
         for round_idx in tqdm(range(0, comm_round)):
-            remote_steps = []
-
-            # Select random clients for each round
-            sampled_clients_idx = np.random.choice(len(client_datasets), client_num_per_round, replace=False)
-
-            for i, client_trainer in enumerate(client_trainers):
-                # Update the remote client_trainer with the latest global model and scheduler state
-                client_trainer.update.remote(global_model.state_dict(), scheduler.state_dict())
-
-                # Perform a remote training step on the client_trainer
-                remote_step = client_trainer.step.remote(sampled_clients_idx[i],
-                                                         client_dataset_refs[sampled_clients_idx[i]],
-                                                         round_idx,
-                                                         device=device)
-                remote_steps.append(remote_step)
-
-            # Retrieve remote steps results
-            updates, weights, local_metrics = zip(*ray.get(remote_steps))
-
-            # Calculate the average local metrics
-            local_metrics_avg = {key: sum(d[key] for d in local_metrics) / len(local_metrics) for key in
-                                 local_metrics[0]}
-
-            # Update the global model using the aggregator
-            state_n = aggregator.step(updates, weights, round_idx)
-            global_model.load_state_dict(state_n)
-            scheduler.step()
+            local_metrics_avg, global_model, scheduler = fed_avg_baseline(aggregator,
+                                                                          client_trainers,
+                                                                          client_dataset_refs,
+                                                                          client_num_per_round,
+                                                                          global_model,
+                                                                          round_idx,
+                                                                          scheduler,
+                                                                          device)
             wandb.log(local_metrics_avg, step=round_idx)
             if round_idx % test_frequency == 0:
                 metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes)

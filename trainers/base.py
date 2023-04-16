@@ -17,7 +17,6 @@ class BaseTrainer:
                  epochs=1):
         self.scheduler = None
         from torchvision.models import resnet
-        from models.utils import ResNetCustomNorm
         from torch.optim import lr_scheduler
         from models.wisdm import LSTM_NET
         from models.widar import Widar_ResNet18

@@ -4,6 +4,8 @@ import numpy as np
 import ray
 import torch
 
+from models.ut_har import UT_HAR_RNN
+from models.utils import load_model
 from partition.utils import IndexedSubset
 
 
@@ -25,7 +27,8 @@ def set_seed(seed: int):
 
 @ray.remote(num_gpus=0.5)
 class DistributedTrainer:
-    def __init__(self, model_path: str,
+    def __init__(self, model_name: str,
+                 dataset_name: str,
                  state_dict: dict,
                  criterion,
                  optimizer_name,
@@ -37,10 +40,7 @@ class DistributedTrainer:
         set_seed(1)
         from aggregators.torchcomponentrepository import TorchComponentRepository
         self.scheduler = None
-        from models.wisdm import LSTM_NET
-        from models.ut_har import UT_HAR_ResNet18
-        LSTM_NET
-        self.model = UT_HAR_ResNet18()
+        self.model = load_model(model_name=model_name, trainer='BaseTrainer', dataset_name=dataset_name)
         self.model.load_state_dict(state_dict)
         self.criterion = criterion
         self.optimizer_name = optimizer_name
@@ -59,7 +59,7 @@ class DistributedTrainer:
             lr=self.lr,
 
             # momentum=0.9,
-            # weight_decay=5e-4,
+            weight_decay=5e-4,
         )
         # print(TorchRepo.name2cls("linearlr", torch.optim.lr_scheduler.LRScheduler))
         self.scheduler = TorchComponentRepository.get_class_by_name(scheduler, torch.optim.lr_scheduler.LRScheduler)(

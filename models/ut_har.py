@@ -170,15 +170,15 @@ class UT_HAR_ResNet(nn.Module):
         return nn.Sequential(*layers)
 
 
-def UT_HAR_ResNet18():
+def UT_HAR_ResNet18() -> UT_HAR_ResNet:
     return UT_HAR_ResNet(Block, [2, 2, 2, 2])
 
 
-def UT_HAR_ResNet50():
+def UT_HAR_ResNet50() -> UT_HAR_ResNet:
     return UT_HAR_ResNet(Bottleneck, [3, 4, 6, 3])
 
 
-def UT_HAR_ResNet101():
+def UT_HAR_ResNet101() -> UT_HAR_ResNet:
     return UT_HAR_ResNet(Bottleneck, [3, 4, 23, 3])
 
 
@@ -393,7 +393,7 @@ class UT_HAR_ViT(nn.Sequential):
 
 
 if __name__ == '__main__':
-    model = UT_HAR_ResNet18()
+    model = UT_HAR_RNN()
     print(model)
     x = torch.randn(3, 1, 250, 90)
     print(model(x).shape)

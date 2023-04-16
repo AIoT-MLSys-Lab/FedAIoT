@@ -4,7 +4,16 @@ import torch.nn.functional as F
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange, Reduce
 
-from models.utils import ResNetCustomNorm
+
+class ResNetCustomNorm(nn.Module):
+    def __init__(self, num_channels):
+        super(ResNetCustomNorm, self).__init__()
+        self.norm = nn.GroupNorm(num_groups=2,
+                                 num_channels=num_channels,)
+
+    def forward(self, x):
+        x = self.norm(x)
+        return x
 
 
 class Widar_MLP(nn.Module):
