@@ -1,8 +1,13 @@
 import logging
+import warnings
 
 import numpy as np
 import ray
 import torch
+import wandb
+from torch import autocast
+from torch.cuda.amp import GradScaler
+from torch.utils.data import DataLoader
 
 from models.ut_har import UT_HAR_RNN
 from models.utils import load_model
@@ -59,7 +64,7 @@ class DistributedTrainer:
             lr=self.lr,
 
             # momentum=0.9,
-            weight_decay=5e-4,
+            # weight_decay=5e-4,
         )
         # print(TorchRepo.name2cls("linearlr", torch.optim.lr_scheduler.LRScheduler))
         self.scheduler = TorchComponentRepository.get_class_by_name(scheduler, torch.optim.lr_scheduler.LRScheduler)(
@@ -86,7 +91,7 @@ class DistributedTrainer:
         client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
                                     indices=ray.get(client_data['indices']))
         weight = len(client_data)
-        client_dataloader = torch.utils.data.DataLoader(
+        client_dataloader = DataLoader(
             dataset=client_data,
             shuffle=self.shuffle,
             batch_size=self.batch_size,
@@ -98,6 +103,9 @@ class DistributedTrainer:
         self.model.to(device)
         self.model.train()
         print("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " Samples " + str(weight))
+        if len(client_dataloader) < 1:
+            warnings.warn("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " dataloader " + str(len(
+                client_dataloader)))
         logging.info(f"Client ID {client_idx} round Idx {round_idx}")
 
         criterion = self.criterion.to(device)
@@ -105,23 +113,43 @@ class DistributedTrainer:
 
         epoch_loss = []
         print(f"Client {client_idx} Scheduler step: ", self.scheduler.get_last_lr(), "Round: ", round_idx)
+        scaler = GradScaler()
         for epoch in range(self.epochs):
             batch_loss = []
+            loss = np.nan
             for batch_idx, (data, labels) in enumerate(client_dataloader):
                 if len(labels) <= 1:
                     continue
                 data, labels = data.to(device), labels.to(device)
                 optimizer.zero_grad()
-                output = self.model(data)
-                loss = criterion(output, labels)
-                loss.backward()
-                optimizer.step()
+
+                with autocast(device_type=device):  # Enable mixed precision training
+                    output = self.model(data)
+                    loss = criterion(output, labels)
+
+                # Replace loss.backward() with the following lines to scale the loss and update the gradients
+                scaler.scale(loss).backward()
+
+                # Uncomment the line below if you want to use gradient clipping
+                # scaler.unscale_(optimizer)
+                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)
+
+                # Replace optimizer.step() with the following line to update the weights and scale the gradients
+                scaler.step(optimizer)
+
+                # Update the scaler
+                scaler.update()
+
                 batch_loss.append(loss.item())
 
             print(f'Client Index = {client_idx}\tEpoch: {epoch}\tBatch Loss: {loss:.6f}\tBatch Number: {batch_idx}')
             logging.info(
                 f"Client Index = {client_idx}\tEpoch: {epoch}\tBatch Loss: {loss:.6f}\tBatch Number: {batch_idx}")
-            epoch_loss.append(sum(batch_loss) / len(batch_loss))
+            if len(batch_loss) > 0:
+                epoch_loss.append(sum(batch_loss) / len(batch_loss))
+            else:
+                warnings.warn("Batch loss is empty")
+                epoch_loss.append(np.nan)
         self.scheduler.step()
         local_update_state = self.model.cpu().state_dict()
         local_metrics = {'Local Loss': sum(epoch_loss) / len(epoch_loss), 'learning_rate':

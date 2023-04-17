@@ -20,7 +20,7 @@ def fed_avg_baseline(aggregator, client_trainers, client_dataset_refs, client_nu
     # Retrieve remote steps results
     updates, weights, local_metrics = zip(*ray.get(remote_steps))
     # Calculate the average local metrics
-    local_metrics_avg = {key: sum(d[key] for d in local_metrics) / len(local_metrics) for key in
+    local_metrics_avg = {key: sum(d[key] for d in local_metrics if d[key]) / len(local_metrics) for key in
                          local_metrics[0]}
     # Update the global model using the aggregator
     state_n = aggregator.step(updates, weights, round_idx)

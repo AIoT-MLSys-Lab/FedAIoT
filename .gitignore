@@ -164,3 +164,7 @@ datasets/cifar10/cifar-10-batches-py/
 datasets/cifar10/cifar-10-python.tar.gz
 datasets/widar/federated/
 wandb/
+datasets/*/*.tar
+datasets/*/*.html
+datasets/*/*.png
+datasets/*/*.dt

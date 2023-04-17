@@ -9,13 +9,13 @@ from torch.utils.data.dataset import T_co
 class UTHarDataset(Dataset):
     def __init__(self, data: np.array, label: np.array):
         self.data = data
-        self.label = label
+        self.targets = label
 
     def __len__(self) -> int:
         return len(self.data)
 
     def __getitem__(self, index) -> T_co:
-        return self.data[index, :, :, :], int(self.label[index])
+        return self.data[index, :, :, :], int(self.targets[index])
 
 
 def load_dataset(root_dir='./datasets/ut_har'):

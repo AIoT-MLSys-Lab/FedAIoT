@@ -147,7 +147,7 @@ class Experiment:
             project='ray_fl_dev_v2',
             entity='samiul',
             name=f'{fl_algorithm}_{dataset_name}_{partition_type}_{client_num_per_round}_{client_num_in_total}_{client_optimizer}_{lr}'
-                 f'_{server_optimizer}_'
+                 f'_{server_optimizer}_{model}'
                  f'{server_lr}_{alpha}_{datetime.now().strftime("%Y%m%d_%H%M%S")}',
             config=args,
         )
@@ -165,7 +165,7 @@ class Experiment:
         if trainer == 'BaseTrainer':
             from scorers.classification_evaluator import evaluate
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
-                                                             milestones=[150, 300],
+                                                             milestones=[500],
                                                              gamma=0.1)
             client_trainers = [DistributedTrainer.remote(model_name=model,
                                                          dataset_name=dataset_name,
@@ -173,7 +173,7 @@ class Experiment:
                                                          criterion=nn.CrossEntropyLoss(),
                                                          optimizer_name=client_optimizer,
                                                          epochs=epochs, scheduler='multisteplr',
-                                                         **{'lr': lr, 'milestones': [300, 500], 'gamma': 0.1}) for _ \
+                                                         **{'lr': lr, 'milestones': [500], 'gamma': 0.1}) for _ \
                                in range(client_num_per_round)]
         elif trainer == 'ultralytics':
             global_model = DetectionModel(cfg=model)
