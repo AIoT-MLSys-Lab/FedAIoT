@@ -112,7 +112,6 @@ class Experiment:
             dataset = loaders.cifar10.load_dataset()
             num_classes = 10
         elif dataset_name == 'wisdm':
-            LSTM_NET
             dataset = loaders.wisdm.load_dataset(reprocess=False)
             num_classes = 12
         elif dataset_name == 'widar':
