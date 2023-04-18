@@ -1,5 +1,4 @@
 # FedAIoT: A Federated Learning Benchmark for Artificial Intelligence of Things
-# Federated Learning Experiment
 
 This repository contains the implementation of a federated learning experiments on different IoT datasets using various 
 federated learning algorithms.
