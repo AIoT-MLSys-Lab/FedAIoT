@@ -2,8 +2,8 @@ import numpy as np
 import ray
 
 
-def fed_avg_baseline(aggregator, client_trainers, client_dataset_refs, client_num_per_round, global_model, round_idx,
-                     scheduler, device):
+def base_fl_algorithm(aggregator, client_trainers, client_dataset_refs, client_num_per_round, global_model, round_idx,
+                      scheduler, device):
     remote_steps = []
     # Select random clients for each round
     sampled_clients_idx = np.random.choice(len(client_dataset_refs), client_num_per_round, replace=False)

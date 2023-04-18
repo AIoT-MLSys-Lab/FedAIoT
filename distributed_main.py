@@ -1,6 +1,5 @@
 import configparser
 import copy
-import json
 import os
 import warnings
 from datetime import datetime
@@ -8,6 +7,7 @@ from datetime import datetime
 import fire
 import numpy as np
 import ray
+import wandb
 from tqdm import tqdm
 from ultralytics.nn.tasks import DetectionModel
 
@@ -16,10 +16,9 @@ import loaders.ut_har
 import loaders.visdrone
 import loaders.widar
 import loaders.wisdm
-import wandb
 from aggregators.base import FederatedAveraging
-from algorithms.fedavg_base import fed_avg_baseline
-from loaders.visdrone import YOLO_HYPERPARAMETERS
+from algorithms.base_fl import base_fl_algorithm
+from loaders.utils import ParameterDict
 from models.ut_har import *
 from models.utils import load_model
 from models.wisdm import LSTM_NET
@@ -29,6 +28,7 @@ from partition.uniform import UniformPartition
 from partition.user_index import UserPartition
 from partition.utils import compute_client_data_distribution, get_html_plots
 from trainers.distributed_base import DistributedTrainer
+from trainers.ultralytics_distributed import DistributedUltralyticsYoloTrainer
 
 os.environ['WANDB_START_METHOD'] = 'thread'
 
@@ -79,6 +79,7 @@ class Experiment:
              server_lr: float = config['DEFAULT'].getfloat('server_lr', 1e-1),
              alpha: float = config['DEFAULT'].getfloat('alpha', 0.1),
              partition_type: str = config['DEFAULT'].get('partition_type', 'dirichlet'),
+             amp: bool = config['DEFAULT'].getboolean('amp', False),
              trainer: str = config['DEFAULT'].get('trainer', 'BaseTrainer')):
         """
         :param model: neural network used in training
@@ -155,7 +156,8 @@ class Experiment:
             data_distribution, class_distribution = compute_client_data_distribution(datasets=client_datasets,
                                                                                      num_classes=num_classes)
             class_dist, sample_dist = get_html_plots(data_distribution, class_distribution)
-            wandb.log({'class_dist': wandb.Html(class_dist, inject=False), 'sample_dist': wandb.Html(sample_dist, inject=False)},
+            wandb.log({'class_dist': wandb.Html(class_dist, inject=False),
+                       'sample_dist': wandb.Html(sample_dist, inject=False)},
                       step=0)
 
         data_ref = ray.put(client_datasets[-1].dataset)
@@ -173,21 +175,63 @@ class Experiment:
                                                          criterion=nn.CrossEntropyLoss(),
                                                          optimizer_name=client_optimizer,
                                                          epochs=epochs, scheduler='multisteplr',
+                                                         amp=amp,
                                                          **{'lr': lr, 'milestones': [500], 'gamma': 0.1}) for _ \
                                in range(client_num_per_round)]
         elif trainer == 'ultralytics':
             global_model = DetectionModel(cfg=model)
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(global_model.optimizer, T_0=10, T_mult=2,
-                                                                             eta_min=1e-6)
-
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                torch.optim.SGD(global_model.parameters(), lr=lr), T_0=10, T_mult=2,
+                eta_min=1e-6)
+            YOLO_HYPERPARAMETERS = {
+                'lr0': 0.01,
+                'lrf': 0.01,
+                'momentum': 0.937,
+                'weight_decay': 0.0005,
+                'warmup_epochs': 3.0,
+                'warmup_momentum': 0.8,
+                'warmup_bias_lr': 0.1,
+                'box': 7.5,
+                'cls': 0.5,
+                'dfl': 1.5,
+                'fl_gamma': 0.0,
+                'label_smoothing': 0.0,
+                'nbs': 64,
+                'hsv_h': 0.015,
+                'hsv_s': 0.7,
+                'hsv_v': 0.4,
+                'degrees': 0.0,
+                'translate': 0.1,
+                'scale': 0.5,
+                'shear': 0.0,
+                'perspective': 0.0,
+                'flipud': 0.0,
+                'fliplr': 0.5,
+                'mosaic': 1.0,
+                'mixup': 0.0,
+                'copy_paste': 0.0,
+                'mask_ratio': 0.0,
+                'overlap_mask': 0.0,
+                'conf': 0.25,
+                'iou': 0.45,
+                'max_det': 1000,
+                'plots': False,
+                'half': False,  # use half precision (FP16)
+                'dnn': False,
+                'data': None,
+                'imgsz': 640,
+                'verbose': False
+            }
+            YOLO_HYPERPARAMETERS = ParameterDict(YOLO_HYPERPARAMETERS)
             global_model.args = YOLO_HYPERPARAMETERS
             from scorers.ultralytics_yolo_evaluator import evaluate
-            from trainers.ultralytics import UltralyticsYoloTrainer
-            client_trainers = [UltralyticsYoloTrainer(
+            client_trainers = [DistributedUltralyticsYoloTrainer.remote(
                 model_path=model,
                 state_dict=global_model.state_dict(),
                 optimizer_name=client_optimizer,
                 epochs=epochs,
+                args=YOLO_HYPERPARAMETERS,
+                amp=amp,
                 device=device) for _ in range(client_num_per_round)]
         else:
             raise ValueError(f'Client trainer of type {trainer} not found')
@@ -199,14 +243,15 @@ class Experiment:
                                         eps=1e-3)
 
         for round_idx in tqdm(range(0, comm_round)):
-            local_metrics_avg, global_model, scheduler = fed_avg_baseline(aggregator,
-                                                                          client_trainers,
-                                                                          client_dataset_refs,
-                                                                          client_num_per_round,
-                                                                          global_model,
-                                                                          round_idx,
-                                                                          scheduler,
-                                                                          device)
+            local_metrics_avg, global_model, scheduler = base_fl_algorithm(aggregator,
+                                                                           client_trainers,
+                                                                           client_dataset_refs,
+                                                                           client_num_per_round,
+                                                                           global_model,
+                                                                           round_idx,
+                                                                           scheduler,
+                                                                           device, )
+            print(local_metrics_avg)
             wandb.log(local_metrics_avg, step=round_idx)
             if round_idx % test_frequency == 0:
                 metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes)

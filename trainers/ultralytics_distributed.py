@@ -1,8 +1,10 @@
 # Ultralytics YOLO 🚀, GPL-3.0 license
 import logging
 
+import ray
 import torch
 import wandb
+from torch import autocast
 from torch.cuda.amp import GradScaler
 from torch.optim import lr_scheduler
 from tqdm import tqdm
@@ -13,25 +15,28 @@ from ultralytics.yolo.v8.detect.train import Loss
 
 from aggregators.torchcomponentrepository import TorchComponentRepository
 from loaders.visdrone import YOLO_HYPERPARAMETERS
+from partition.utils import IndexedSubset
 
 
 # from validator import YoloValidator
 
-
-class UltralyticsYoloTrainer:
-    def __init__(self, model_path: str,
+@ray.remote(num_gpus=1.0)
+class DistributedUltralyticsYoloTrainer:
+    def __init__(self,
+                 model_path: str,
                  state_dict: dict,
                  optimizer_name,
                  lr=.1,
                  batch_size=20,
                  shuffle=True,
                  epochs=1,
-                 device='cuda',
+                 device='cuda', amp=True,
                  args=YOLO_HYPERPARAMETERS):
         self.loss_items = None
         self.lr = lr
         self.optimizer_name = optimizer_name
         self.args = args
+        self.amp = amp
         self.batch_size = batch_size
         self.epochs = epochs
         self.model = DetectionModel(cfg=model_path)
@@ -46,21 +51,30 @@ class UltralyticsYoloTrainer:
         )
         # self.scheduler = lr_scheduler.MultiStepLR(self.optimizer, gamma=0.1, milestones=[30, 75])
         self.scheduler = lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=10, T_mult=2, eta_min=1e-6)
+        self.scaler = GradScaler(enabled=self.amp)
 
-    def update(self, model_params):
+    def update(self, model_params, scheduler_params):
         self.model.load_state_dict(model_params)
+        self.scheduler.load_state_dict(scheduler_params)
 
     def get_model_params(self):
         return self.model.cpu().state_dict()
 
     def step(self, client_idx, client_data, round_idx, device='cuda'):
-        wandb.log({'lr': self.scheduler.get_last_lr()[0]}, step=round_idx)
+        client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
+                                    indices=ray.get(client_data['indices']))
+        # wandb.log({'lr': self.scheduler.get_last_lr()[0]}, step=round_idx)
+        losses = None
         for epoch in range(self.epochs):
             losses = self.train_one_epoch(client_idx, client_data, round_idx, device)
-            for i, loss in enumerate(losses):
-                wandb.log({f'Local_Loss_{i}': loss}, step=round_idx)
             self.scheduler.step()
-        return self.get_model_params(), len(client_data)
+        local_metrics = {
+            'iou_loss': losses[0],
+            'obj_loss': losses[1],
+            'cls_loss': losses[2],
+            'lr': self.scheduler.get_last_lr()[0]
+        } if losses is not None else {}
+        return self.get_model_params(), len(client_data), local_metrics
 
     def train_one_epoch(self, client_idx, client_data, round_idx, device):
         weight = len(client_data)
@@ -83,18 +97,20 @@ class UltralyticsYoloTrainer:
 
         for i, batch in tqdm(enumerate(client_dataloader), total=len(client_dataloader)):
             batch = self.preprocess_batch(batch, device)
-            preds = self.model(batch['img'])
-            loss, loss_items = self.criterion(preds, batch)
+            with autocast(device_type=device, enabled=self.amp):
+                preds = self.model(batch['img'])
+                loss, loss_items = self.criterion(preds, batch)
             tloss = (tloss * i + loss_items) / (i + 1) if tloss is not None \
                 else loss_items
 
             # Backward
-            loss.backward()
+            self.scaler.scale(loss).backward()
             self.optimizer_step()
         torch.cuda.empty_cache()
         return tloss.cpu().numpy()
 
     def optimizer_step(self):
+        self.scaler.unscale_(self.optimizer)  # unscale gradients
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)  # clip gradients
         self.scaler.step(self.optimizer)
         self.scaler.update()
