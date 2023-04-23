@@ -133,15 +133,36 @@ def get_html_plots(data_distribution, class_distribution):
     return 'logs/class_dist.html', 'logs/data_dist.html'
 
 def label_nosiy(client_datasets, class_num, error_ratio, error_var):
+    """
+    Add label noise to client datasets.
+
+    Args:
+        client_datasets: a list of client datasets
+        class_num: an integer indicating the number of classes.
+        error_ratio: a float between 0 and 1 indicating the ratio of labels to be flipped.
+        error_var: a float indicating the variance of the Gaussian distribution used to determine
+            the level of label noise.
+
+    Returns:
+        A list of client datasets
+    """
     client_datasets_label_error = []
     for original_data in client_datasets:
+        # Determine the level of label noise for this client dataset. The level is computed by normal distribution
         noisy_level = np.random.normal(error_ratio, error_var)
         if noisy_level < 0:
             noisy_level = 0
+
+        # Set the level of sparsity in the noise matrix.
         sparse_level = 0.4
+
+        # Create a probability matrix for each label, where each element represents the probability of a label being assigned to that image.
         prob_matrix = [1-noisy_level] * class_num * class_num
+
+        # Set a random subset of elements in the probability matrix to zero to create sparsity.
         sparse_elements = np.random.choice(class_num*class_num, round(class_num*(class_num-1)*sparse_level))
         for idx in range(len(sparse_elements)):
+            # Ensure that the diagonal elements of the probability matrix are not set to zero.
             while sparse_elements[idx]%(class_num+1) == 0:
                 sparse_elements[idx] = np.random.choice(class_num*class_num, 1)
             prob_matrix[sparse_elements[idx]] = 0
