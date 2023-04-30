@@ -7,33 +7,37 @@ from datetime import datetime
 import fire
 import numpy as np
 import ray
-import wandb
+from torchmetrics import Accuracy, F1Score
 from tqdm import tqdm
 from ultralytics.nn.tasks import DetectionModel
 
 import loaders.cifar10
+import loaders.emognition
 import loaders.ut_har
 import loaders.visdrone
 import loaders.widar
 import loaders.wisdm
+import wandb
 from aggregators.base import FederatedAveraging
 from algorithms.base_fl import base_fl_algorithm
 from loaders.utils import ParameterDict
 from models.ut_har import *
 from models.utils import load_model
-from models.wisdm import LSTM_NET
 from partition.centralized import CentralizedPartition
 from partition.dirichlet import DirichletPartition
 from partition.uniform import UniformPartition
 from partition.user_index import UserPartition
 from partition.utils import compute_client_data_distribution, get_html_plots
+from scorers.classification_evaluator import LossMetric
 from trainers.distributed_base import DistributedTrainer
 from trainers.ultralytics_distributed import DistributedUltralyticsYoloTrainer
+from utils import WarmupScheduler
 
 os.environ['WANDB_START_METHOD'] = 'thread'
 
 config = configparser.ConfigParser()
 config.read('config.yml')
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 ray.init()
 
@@ -123,8 +127,12 @@ class Experiment:
         elif dataset_name == 'ut_har':
             dataset = loaders.ut_har.load_dataset()
             num_classes = 7
+        elif dataset_name == 'emognition':
+            dataset = loaders.emognition.load_bracelet_data(reprocess=True)
+            num_classes = 9
         else:
             return
+
         if partition_type == 'user' and dataset_name in {'wisdm', 'widar', 'visdrone'}:
             partition = UserPartition(dataset['split']['train'])
             client_num_in_total = len(dataset['split']['train'].keys())
@@ -151,7 +159,7 @@ class Experiment:
                  f'{server_lr}_{alpha}_{datetime.now().strftime("%Y%m%d_%H%M%S")}',
             config=args,
         )
-        if dataset_name != 'visdrone':
+        if dataset_name in  ['wisdm', 'widar', 'ut_har']:
             data_distribution, class_distribution = compute_client_data_distribution(datasets=client_datasets,
                                                                                      num_classes=num_classes)
             class_dist, sample_dist = get_html_plots(data_distribution, class_distribution)
@@ -165,23 +173,35 @@ class Experiment:
         global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
         if trainer == 'BaseTrainer':
             from scorers.classification_evaluator import evaluate
+            if dataset_name in {'emognition'}:
+                from scorers.regression_evaluator import evaluate
+                criterion = nn.L1Loss()
+            else:
+                criterion = nn.CrossEntropyLoss()
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
                                                              milestones=[500],
                                                              gamma=0.1)
             client_trainers = [DistributedTrainer.remote(model_name=model,
                                                          dataset_name=dataset_name,
                                                          state_dict=global_model.state_dict(),
-                                                         criterion=nn.CrossEntropyLoss(),
+                                                         criterion=criterion,
                                                          optimizer_name=client_optimizer,
                                                          epochs=epochs, scheduler='multisteplr',
                                                          amp=amp,
                                                          **{'lr': lr, 'milestones': [500], 'gamma': 0.1}) for _ \
                                in range(client_num_per_round)]
         elif trainer == 'ultralytics':
+            pt = torch.load('yolov8n.pt.1')
             global_model = DetectionModel(cfg=model)
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            # global_model.load(pt)
+            base_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 torch.optim.SGD(global_model.parameters(), lr=lr), T_0=10, T_mult=2,
                 eta_min=1e-6)
+            optimizer = torch.optim.SGD(global_model.parameters(), lr=lr)
+            # base_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+            #                                                  milestones=[30, 60, 90],
+            #                                                  gamma=0.1)
+            scheduler = WarmupScheduler(optimizer, warmup_epochs=3, scheduler=base_scheduler)
             YOLO_HYPERPARAMETERS = {
                 'lr0': 0.01,
                 'lrf': 0.01,
@@ -230,6 +250,7 @@ class Experiment:
                 optimizer_name=client_optimizer,
                 epochs=epochs,
                 args=YOLO_HYPERPARAMETERS,
+                batch_size=batch_size,
                 amp=amp,
                 device=device) for _ in range(client_num_per_round)]
         else:

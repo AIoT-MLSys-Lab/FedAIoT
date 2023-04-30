@@ -6,6 +6,7 @@ import torch
 import wandb
 from torch import autocast
 from torch.cuda.amp import GradScaler
+from torch.nn import DataParallel
 from torch.optim import lr_scheduler
 from tqdm import tqdm
 from ultralytics.nn.tasks import DetectionModel
@@ -16,11 +17,12 @@ from ultralytics.yolo.v8.detect.train import Loss
 from aggregators.torchcomponentrepository import TorchComponentRepository
 from loaders.visdrone import YOLO_HYPERPARAMETERS
 from partition.utils import IndexedSubset
+from utils import WarmupScheduler
 
 
 # from validator import YoloValidator
 
-@ray.remote(num_gpus=1.0)
+@ray.remote(num_gpus=8.0)
 class DistributedUltralyticsYoloTrainer:
     def __init__(self,
                  model_path: str,
@@ -49,8 +51,12 @@ class DistributedUltralyticsYoloTrainer:
             self.model.parameters(),
             lr=self.lr,
         )
-        # self.scheduler = lr_scheduler.MultiStepLR(self.optimizer, gamma=0.1, milestones=[30, 75])
-        self.scheduler = lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=10, T_mult=2, eta_min=1e-6)
+        # self.base_scheduler = lr_scheduler.MultiStepLR(self.optimizer, gamma=0.1, milestones=[30, 60])
+        self.base_scheduler = lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=10, T_mult=2, eta_min=1e-6)
+        # self.base_scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(self.model.parameters(), lr=lr),
+        #                                                  milestones=[500],
+        #                                                  gamma=0.1)
+        self.scheduler = WarmupScheduler(self.optimizer, warmup_epochs=3, scheduler=self.base_scheduler)
         self.scaler = GradScaler(enabled=self.amp)
 
     def update(self, model_params, scheduler_params):
@@ -86,6 +92,7 @@ class DistributedUltralyticsYoloTrainer:
             drop_last=False,
             collate_fn=YOLODataset.collate_fn
         )
+        # self.model = DataParallel(self.model)
         self.model = self.model.to(device)
         self.model.train()
         print("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " Samples " + str(weight))
@@ -97,7 +104,7 @@ class DistributedUltralyticsYoloTrainer:
 
         for i, batch in tqdm(enumerate(client_dataloader), total=len(client_dataloader)):
             batch = self.preprocess_batch(batch, device)
-            with autocast(device_type=device, enabled=self.amp):
+            with autocast(device_type='cuda', enabled=self.amp):
                 preds = self.model(batch['img'])
                 loss, loss_items = self.criterion(preds, batch)
             tloss = (tloss * i + loss_items) / (i + 1) if tloss is not None \
@@ -106,7 +113,7 @@ class DistributedUltralyticsYoloTrainer:
             # Backward
             self.scaler.scale(loss).backward()
             self.optimizer_step()
-        torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
         return tloss.cpu().numpy()
 
     def optimizer_step(self):
@@ -122,7 +129,7 @@ class DistributedUltralyticsYoloTrainer:
 
     def criterion(self, preds, batch):
         if not hasattr(self, 'compute_loss'):
-            self.compute_loss = Loss(de_parallel(self.model))
+            self.compute_loss = Loss(self.model)
         return self.compute_loss(preds, batch)
 
     def label_loss_items(self, loss_items=None, prefix='train'):

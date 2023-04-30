@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 
 from models.utils import load_model
 from partition.utils import IndexedSubset
+from utils import WarmupScheduler
 
 
 def set_seed(seed: int):
@@ -67,10 +68,12 @@ class DistributedTrainer:
             # weight_decay=5e-4,
         )
         # print(TorchRepo.name2cls("linearlr", torch.optim.lr_scheduler.LRScheduler))
-        self.scheduler = TorchComponentRepository.get_class_by_name(scheduler, torch.optim.lr_scheduler.LRScheduler)(
+        self.base_scheduler = TorchComponentRepository.get_class_by_name(scheduler,
+                                                                         torch.optim.lr_scheduler.LRScheduler)(
             self.optimizer,
             gamma=gamma,
             milestones=milestones)
+        self.scheduler = WarmupScheduler(self.optimizer, warmup_epochs=0, scheduler=self.base_scheduler)
         # self.scheduler = lr_scheduler.MultiStepLR(self.optimizer, gamma=0.1, milestones=[75, 125])
         self.scaler = GradScaler(enabled=self.amp)
 

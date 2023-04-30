@@ -168,3 +168,4 @@ datasets/*/*.tar
 datasets/*/*.html
 datasets/*/*.png
 datasets/*/*.dt
+/datasets/emognition/

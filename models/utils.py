@@ -3,12 +3,13 @@ import inspect
 from torch import nn
 from ultralytics.nn.tasks import DetectionModel
 
-from models import widar, wisdm, ut_har
+from models import widar, wisdm, ut_har, emognition
 
 MODULE_MAP = {
     'wisdm': wisdm,
     'widar': widar,
-    'ut_har': ut_har
+    'ut_har': ut_har,
+    'emognition': emognition,
 }
 
 
