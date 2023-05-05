@@ -105,6 +105,7 @@ class Experiment:
         :param alpha: alpha in Dirichlet distribution
         :param partition_type: partition type: user, dirichlet, central
         :param trainer: trainer to be used
+        :param amp: flag for using mixed precision
         """
 
         args = copy.deepcopy(locals())
@@ -152,8 +153,8 @@ class Experiment:
         client_datasets = partition(dataset['train'])
         wandb.init(
             # mode='disabled',
-            project='ray_fl_dev_v2',
-            entity='samiul',
+            project=config['DEFAULT']['project'],
+            entity=config['DEFAULT']['entity'],
             name=f'{fl_algorithm}_{dataset_name}_{partition_type}_{client_num_per_round}_{client_num_in_total}_{client_optimizer}_{lr}'
                  f'_{server_optimizer}_{model}'
                  f'{server_lr}_{alpha}_{datetime.now().strftime("%Y%m%d_%H%M%S")}',

@@ -19,3 +19,5 @@ alpha = 0.1
 partition_type = dirichlet
 device=cuda
 trainer = BaseTrainer
+entity=samiul
+project=ray_fl_dev_v2
