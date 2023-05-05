@@ -117,7 +117,7 @@ class Experiment:
             dataset = loaders.cifar10.load_dataset()
             num_classes = 10
         elif dataset_name == 'wisdm':
-            dataset = loaders.wisdm.load_dataset(reprocess=False)
+            dataset = loaders.wisdm.load_dataset(reprocess=True)
             num_classes = 12
         elif dataset_name == 'widar':
             dataset = loaders.widar.load_dataset()

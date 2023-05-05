@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from pathlib import Path
 from typing import List, Sized
 
 import altair as alt
@@ -129,6 +130,7 @@ def get_html_plots(data_distribution, class_distribution):
             # height=120,
         )
     )
+    Path('logs/').mkdir(exist_ok=True)
     (heatmap + text).save('logs/class_dist.html'), data_bar.save('logs/data_dist.html')
     return 'logs/class_dist.html', 'logs/data_dist.html'
 

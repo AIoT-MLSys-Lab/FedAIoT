@@ -1,6 +1,6 @@
 [DEFAULT]
-model = models/widar_resnet18.pt
-dataset = widar
+model = LSTM_NET
+dataset = wisdm
 data_dir = ../data/
 client_num_in_total = 30
 client_num_per_round = 6
@@ -15,7 +15,7 @@ comm_round = 500
 test_frequency = 5
 server_optimizer = sgd
 server_lr = 1
-alpha = 0.1
+alpha = 0.25
 partition_type = dirichlet
 device=cuda
 trainer = BaseTrainer
