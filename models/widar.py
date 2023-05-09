@@ -181,15 +181,15 @@ class Widar_ResNet(nn.Module):
         return nn.Sequential(*layers)
 
 
-def Widar_ResNet18(num_classes):
+def Widar_ResNet18(num_classes) -> Widar_ResNet:
     return Widar_ResNet(Block, [2, 2, 2, 2], num_classes=num_classes)
 
 
-def Widar_ResNet50(num_classes):
+def Widar_ResNet50(num_classes) -> Widar_ResNet:
     return Widar_ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes)
 
 
-def Widar_ResNet101(num_classes):
+def Widar_ResNet101(num_classes) -> Widar_ResNet:
     return Widar_ResNet(Bottleneck, [3, 4, 23, 3], num_classes=num_classes)
 
 

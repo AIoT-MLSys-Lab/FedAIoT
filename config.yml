@@ -1,6 +1,6 @@
 [DEFAULT]
-model = LSTM_NET
-dataset = wisdm
+model = Widar_ResNet18
+dataset = widar
 data_dir = ../data/
 client_num_in_total = 30
 client_num_per_round = 6

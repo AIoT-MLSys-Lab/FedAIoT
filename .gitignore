@@ -169,3 +169,11 @@ datasets/*/*.html
 datasets/*/*.png
 datasets/*/*.dt
 /datasets/emognition/
+/datasets/widar/federated/
+/datasets/widar/Widardata/
+/datasets/widar/Widardata.zip
+/datasets/wisdm/wisdm-dataset/
+/datasets/wisdm/processed.csv
+/datasets/wisdm/wisdm-dataset.zip
+/datasets/wisdm/wisdm.dt
+/logs/

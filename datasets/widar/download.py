@@ -12,7 +12,7 @@ from tqdm import tqdm
 FILE_ID = "14vp4D8W0X2bDLpXnpP-U_VT9PIGkVf_4"
 
 # Define the directory where you want to save the dataset
-SAVE_DIR = "./"
+SAVE_DIR = "./datasets/widar"
 
 
 # Function to download the file from Google Drive
@@ -34,7 +34,7 @@ def extract_file(file_path, save_dir):
 
 
 def process():
-    files = glob.glob('Widardata/*/*/*.csv')
+    files = glob.glob('./datasets/widar/Widardata/*/*/*.csv')
     data = {}
     for file in tqdm(files):
         y = int(file.split('/')[-2].split('-')[0])
@@ -44,13 +44,13 @@ def process():
         x = np.genfromtxt(file, delimiter=',')
         data[user]['X'].append(x)
         data[user]['Y'].append(y)
-    Path('federated').mkdir(exist_ok=True)
+    Path('./datasets/widar/federated').mkdir(exist_ok=True)
     for user in data.keys():
         X = np.concatenate(np.expand_dims(np.array(data[user]['X']), 0))
         Y = np.array(data[user]['Y'])
-        print(f'{user}_data.pkl', e)
+        print(f'{user}_data.pkl')
         print(X.shape, Y.shape)
-        torch.save((X, Y), f'federated/{user}.pkl')
+        torch.save((X, Y), f'./datasets/widar/federated/{user}.pkl')
 
 
 # Main function to download and extract the WidarData.zip file
