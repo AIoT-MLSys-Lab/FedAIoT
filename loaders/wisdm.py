@@ -147,9 +147,9 @@ def get_processed_dataframe(reprocess=False):
         pandas.DataFrame: The processed DataFrame.
     """
     if os.path.exists('datasets/wisdm/processed.csv') and not reprocess:
-        return pd.read_csv('datasets/wisdm/processed.csv')
-    act_df = pd.read_csv('datasets/wisdm/activity_key_filtered.txt')
-    processed_df = process_dataset(act_df, "datasets/wisdm/")
+        return pd.read_csv('datasets/wisdm/processed.csv', index_col=0)
+    act_df = pd.read_csv('datasets/wisdm/activity_key_filtered.txt', index_col=0)
+    processed_df = process_dataset(act_df, "datasets/wisdm/wisdm-dataset")
     processed_df = normalize_data(processed_df)
     processed_df.to_csv('datasets/wisdm/processed.csv')
     return processed_df
@@ -226,7 +226,7 @@ def load_dataset(window=200, overlap=0.5, reprocess=True, split=0.8):
     if os.path.exists('datasets/wisdm/wisdm.dt') and not reprocess:
         return torch.load('datasets/wisdm/wisdm.dt')
     processed_df = get_processed_dataframe(reprocess=reprocess)
-    if reprocess:
+    if reprocess or not os.path.exists('datasets/wisdm/wisdm.dt'):
         clients = list(range(1600, 1651))
         data, idx = create_dataset(processed_df, clients=clients, window=window, overlap=overlap)
         dataset = WISDMDataset(data)

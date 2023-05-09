@@ -7,11 +7,11 @@ import requests
 WISDM_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/00507/wisdm-dataset.zip"
 
 # Define the directory where you want to save the dataset
-SAVE_DIR = "./"
+SAVE_DIR = "datasets/wisdm/"
 
 
 # Function to download the dataset
-def download_wisdm_dataset(url, save_dir='./'):
+def download_wisdm_dataset(url, save_dir='./datasets/wisdm/'):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 

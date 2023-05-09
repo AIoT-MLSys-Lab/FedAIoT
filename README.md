@@ -16,7 +16,7 @@ federated learning algorithms.
 
 Make sure to have the following dependencies installed:
 
-- Python 3.6 or higher
+- Python 3.10 or higher
 - PyTorch
 - NumPy
 - Ray

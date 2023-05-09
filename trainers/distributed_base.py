@@ -29,7 +29,7 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
 
-@ray.remote(num_gpus=0.5)
+@ray.remote(num_gpus=0.2)
 class DistributedTrainer:
     def __init__(self, model_name: str,
                  dataset_name: str,

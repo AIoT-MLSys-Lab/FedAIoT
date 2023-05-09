@@ -103,6 +103,7 @@ class Experiment:
         :param alpha: alpha in Dirichlet distribution
         :param partition_type: partition type: user, dirichlet, central
         :param trainer: trainer to be used
+        :param amp: flag for using mixed precision
         """
 
         args = copy.deepcopy(locals())
@@ -114,7 +115,7 @@ class Experiment:
             dataset = loaders.cifar10.load_dataset()
             num_classes = 10
         elif dataset_name == 'wisdm':
-            dataset = loaders.wisdm.load_dataset(reprocess=False)
+            dataset = loaders.wisdm.load_dataset(reprocess=True)
             num_classes = 12
         elif dataset_name == 'widar':
             dataset = loaders.widar.load_dataset()
@@ -155,9 +156,9 @@ class Experiment:
         partition_name = partition_type if partition_type != 'dirichlet' else f'{partition_type}_{alpha}'
         wandb.init(
             # mode='disabled',
-            project='ray_fl_gdev_v2',
-            entity='samiul',
-            name=f'{fl_algorithm}_{dataset_name}_{partition_name}_{client_num_per_round}_{client_num_in_total}_{client_optimizer}_{lr}'
+            project=config['DEFAULT']['project'],
+            entity=config['DEFAULT']['entity'],
+            name=f'{fl_algorithm}_{dataset_name}_{partition_type}_{client_num_per_round}_{client_num_in_total}_{client_optimizer}_{lr}'
                  f'_{server_optimizer}_{model}'
                  f'{server_lr}_{alpha}_{datetime.now().strftime("%Y%m%d_%H%M%S")}',
             config=args,
