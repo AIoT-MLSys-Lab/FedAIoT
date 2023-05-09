@@ -7,10 +7,10 @@ from datetime import datetime
 import fire
 import numpy as np
 import ray
-from torchmetrics import Accuracy, F1Score
 from tqdm import tqdm
 from ultralytics.nn.tasks import DetectionModel
 
+import loaders.casas
 import loaders.cifar10
 import loaders.emognition
 import loaders.ut_har
@@ -28,7 +28,6 @@ from partition.dirichlet import DirichletPartition
 from partition.uniform import UniformPartition
 from partition.user_index import UserPartition
 from partition.utils import compute_client_data_distribution, get_html_plots
-from scorers.classification_evaluator import LossMetric
 from trainers.distributed_base import DistributedTrainer
 from trainers.ultralytics_distributed import DistributedUltralyticsYoloTrainer
 from utils import WarmupScheduler
@@ -37,8 +36,7 @@ os.environ['WANDB_START_METHOD'] = 'thread'
 
 config = configparser.ConfigParser()
 config.read('config.yml')
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 ray.init()
 
 
@@ -131,6 +129,9 @@ class Experiment:
         elif dataset_name == 'emognition':
             dataset = loaders.emognition.load_bracelet_data(reprocess=True)
             num_classes = 9
+        elif dataset_name == 'casas':
+            dataset = loaders.casas.load_dataset()
+            num_classes = 12
         else:
             return
 
@@ -150,7 +151,9 @@ class Experiment:
             client_num_in_total = 1
         else:
             raise ValueError('partition type not supported')
+        milestones = [250, 900]
         client_datasets = partition(dataset['train'])
+        partition_name = partition_type if partition_type != 'dirichlet' else f'{partition_type}_{alpha}'
         wandb.init(
             # mode='disabled',
             project=config['DEFAULT']['project'],
@@ -160,7 +163,7 @@ class Experiment:
                  f'{server_lr}_{alpha}_{datetime.now().strftime("%Y%m%d_%H%M%S")}',
             config=args,
         )
-        if dataset_name in  ['wisdm', 'widar', 'ut_har']:
+        if dataset_name in ['wisdm', 'widar', 'ut_har', 'casas']:
             data_distribution, class_distribution = compute_client_data_distribution(datasets=client_datasets,
                                                                                      num_classes=num_classes)
             class_dist, sample_dist = get_html_plots(data_distribution, class_distribution)
@@ -180,7 +183,7 @@ class Experiment:
             else:
                 criterion = nn.CrossEntropyLoss()
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
-                                                             milestones=[500],
+                                                             milestones=milestones,
                                                              gamma=0.1)
             client_trainers = [DistributedTrainer.remote(model_name=model,
                                                          dataset_name=dataset_name,
@@ -189,7 +192,7 @@ class Experiment:
                                                          optimizer_name=client_optimizer,
                                                          epochs=epochs, scheduler='multisteplr',
                                                          amp=amp,
-                                                         **{'lr': lr, 'milestones': [500], 'gamma': 0.1}) for _ \
+                                                         **{'lr': lr, 'milestones': milestones, 'gamma': 0.1}) for _ \
                                in range(client_num_per_round)]
         elif trainer == 'ultralytics':
             pt = torch.load('yolov8n.pt.1')

@@ -168,7 +168,7 @@ def collate_fn(batch: List[Tuple[torch.Tensor, torch.Tensor, str, Tuple[int, int
 
 
 def load_dataset(root: str = "datasets/visdrone/yolo_format",
-                 augment: bool = False,
+                 augment: bool = True,
                  hyp: Dict[str, Any] = YOLO_HYPERPARAMETERS) \
         -> Dict[str, Union[YOLODataset, Dict[str, List[int]], Dict[str, Dict[int, List[int]]]]]:
     """
@@ -193,7 +193,7 @@ def load_dataset(root: str = "datasets/visdrone/yolo_format",
     dataset_val = YOLODataset(
         img_path=os.path.join(root, 'val'),
         hyp=hyp,
-        augment=augment,
+        augment=False,
         names=['pedestrian', 'person', 'car', 'van', 'bus', 'truck', 'motor', 'bicycle', 'awning-tricycle', 'tricycle',
                'block', 'car_group']
     )
@@ -201,7 +201,7 @@ def load_dataset(root: str = "datasets/visdrone/yolo_format",
     dataset_test = YOLODataset(
         img_path=os.path.join(root, 'test'),
         hyp=hyp,
-        augment=augment,
+        augment=False,
         names=['pedestrian', 'person', 'car', 'van', 'bus', 'truck', 'motor', 'bicycle', 'awning-tricycle', 'tricycle',
                'block', 'car_group']
     )

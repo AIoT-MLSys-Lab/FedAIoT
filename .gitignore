@@ -177,3 +177,4 @@ datasets/*/*.dt
 /datasets/wisdm/wisdm-dataset.zip
 /datasets/wisdm/wisdm.dt
 /logs/
+datasets/casas/
