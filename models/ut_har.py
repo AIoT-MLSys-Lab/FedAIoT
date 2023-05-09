@@ -395,6 +395,6 @@ class UT_HAR_ViT(nn.Sequential):
 if __name__ == '__main__':
     model = UT_HAR_RNN()
     print(model)
-    x = torch.randn(3, 1, 250, 90)
+    x = torch.randn(3, 3, 250, 30)
     print(model(x).shape)
     torch.save(model, 'models/ut_har_resnet_18.pt')

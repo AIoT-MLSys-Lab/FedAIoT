@@ -6,7 +6,7 @@ import torch.nn as nn
 class LSTM_NET(nn.Module):
     """Class to design a LSTM model."""
 
-    def __init__(self, input_dim, hidden_dim, time_length):
+    def __init__(self, input_dim=6, hidden_dim=6, time_length=200):
         """Initialisation of the class (constructor)."""
         # Input:
         # input_dim, integer

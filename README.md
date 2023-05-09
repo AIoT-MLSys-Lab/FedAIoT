@@ -54,23 +54,24 @@ If the samples in the dataset are mapped to subjects/users/clients/etc, the load
 The loader will also return a `split` containing the client mapping for `train` and `test` partition if present.
 
 When loading make sure to specify the classes:
+
 ```python
         if dataset_name == 'cifar10':
-            dataset = loaders.cifar10.load_dataset()
-            num_classes = 10
-        elif dataset_name == 'wisdm':
-            LSTM_NET
-            dataset = loaders.wisdm.load_dataset(reprocess=False)
-            num_classes = 12
-        elif dataset_name == 'widar':
-            dataset = loaders.widar.load_dataset()
-            num_classes = 9
-        elif dataset_name == 'visdrone':
-            dataset = loaders.visdrone.load_dataset()
-            num_classes = 12
-        elif dataset_name == 'ut_har':
-            dataset = loaders.ut_har.load_dataset()
-            num_classes = 7
+    dataset = loaders.cifar10.load_raw_data()
+    num_classes = 10
+elif dataset_name == 'wisdm':
+    LSTM_NET
+    dataset = loaders.wisdm.load_raw_data(reprocess=False)
+    num_classes = 12
+elif dataset_name == 'widar':
+    dataset = loaders.widar.load_raw_data()
+    num_classes = 9
+elif dataset_name == 'visdrone':
+    dataset = loaders.visdrone.load_raw_data()
+    num_classes = 12
+elif dataset_name == 'ut_har':
+    dataset = loaders.ut_har.load_raw_data()
+    num_classes = 7
 ```
 [See here](https://github.com/AIoT-MLSys-Lab/FedAIoT/blob/61d8147d56f7ef4ea04d43a708f4de523f9e36bc/distributed_main.py#L111-L126)
 
