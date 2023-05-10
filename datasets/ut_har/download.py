@@ -2,12 +2,13 @@ import os
 import zipfile
 
 import gdown
+from process import process
 
 # Define the shared Google Drive file URL
 FILE_ID = "1fEiI3nAoOsddR5qcJQXqz4ocM3aMAcwz"
 
 # Define the directory where you want to save the dataset
-SAVE_DIR = "./"
+SAVE_DIR = "./datasets/ut_har"
 
 
 # Function to download the file from Google Drive
@@ -32,6 +33,7 @@ def extract_file(file_path, save_dir):
 def main():
     file_path = download_file_from_google_drive(FILE_ID, SAVE_DIR)
     extract_file(file_path, SAVE_DIR)
+    process(SAVE_DIR)
 
 
 if __name__ == "__main__":

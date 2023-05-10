@@ -1,14 +1,12 @@
 import os.path
-import shutil
 from pathlib import Path
 from typing import List, Tuple, Dict, Any, Union
 
 import pandas as pd
 import torch
-from PIL import Image
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from ultralytics.yolo.data import YOLODataset
+from ultralytics.yolo.data.dataset import YOLODataset
 from ultralytics.yolo.data.dataloaders.v5loader import LoadImagesAndLabels
 
 from loaders.utils import ParameterDict
@@ -102,54 +100,6 @@ class VisDroneDataset(Dataset):
         return len(self.dataset)
 
 
-def convert_visdrone_to_yolo_format(visdrone_folder: str, output_folder: str) -> None:
-    """
-    Convert VisDrone dataset to YOLOv5 format.
-
-    Args:
-        visdrone_folder (str): Path to the VisDrone dataset folder.
-        output_folder (str): Path to the output folder where the converted dataset will be saved.
-    """
-    visdrone_folder = Path(visdrone_folder)
-    output_folder = Path(output_folder)
-
-    for data_split in ["train", "val", "test"]:
-        images_folder = visdrone_folder / f"{data_split}/images"
-        annotations_folder = visdrone_folder / f"{data_split}/annotations"
-
-        output_images_folder = output_folder / f"{data_split}/images"
-        output_labels_folder = output_folder / f"{data_split}/labels"
-
-        output_images_folder.mkdir(parents=True, exist_ok=True)
-        output_labels_folder.mkdir(parents=True, exist_ok=True)
-
-        for annotation_file in tqdm(annotations_folder.glob("*.txt")):
-            image_file = images_folder / f"{annotation_file.stem}.jpg"
-
-            if image_file.exists():
-                # Copy image file
-                shutil.copy(image_file, output_images_folder / image_file.name)
-                img = Image.open(image_file).convert("RGB")
-                # Convert and save label file
-                with open(annotation_file) as f:
-                    lines = f.readlines()
-
-                with open(output_labels_folder / annotation_file.name, "w") as f:
-                    for line in lines:
-                        items = line.strip().split(",")
-
-                        # Calculate normalized values required by YOLOv5
-                        # class_id, x_center, y_center, width, height
-
-                        class_id = int(items[5])
-                        x_center = (int(items[0]) + int(items[2]) / 2) / img.width
-                        y_center = (int(items[1]) + int(items[3]) / 2) / img.height
-                        width = int(items[2]) / img.width
-                        height = int(items[3]) / img.height
-
-                        f.write(f"{class_id} {x_center} {y_center} {width} {height}\n")
-
-
 def collate_fn(batch: List[Tuple[torch.Tensor, torch.Tensor, str, Tuple[int, int]]]) \
         -> Tuple[torch.Tensor, torch.Tensor, List[str], Tuple[Tuple[int, int], ...]]:
     """
@@ -167,7 +117,7 @@ def collate_fn(batch: List[Tuple[torch.Tensor, torch.Tensor, str, Tuple[int, int
     return torch.stack(im, 0).float(), torch.cat(label, 0), path, shapes
 
 
-def load_dataset(root: str = "datasets/visdrone/yolo_format",
+def load_dataset(root: str = "datasets/visdrone",
                  augment: bool = True,
                  hyp: Dict[str, Any] = YOLO_HYPERPARAMETERS) \
         -> Dict[str, Union[YOLODataset, Dict[str, List[int]], Dict[str, Dict[int, List[int]]]]]:
@@ -206,7 +156,7 @@ def load_dataset(root: str = "datasets/visdrone/yolo_format",
                'block', 'car_group']
     )
 
-    df = pd.read_csv('split.csv', index_col='image_id')
+    df = pd.read_csv(f'{root}/split.csv', index_col='image_id')
     if not Path('visdrone_client_mapping.pt').exists():
         client_mapping = {k: [] for k in range(100)}
         for i, d in tqdm(enumerate(dataset_train)):
@@ -229,10 +179,4 @@ if __name__ == "__main__":
     # output_folder = "../datasets/visdrone/yolo_format"
     #
     # convert_visdrone_to_yolo_format(visdrone_folder, output_folder)
-    dt = YOLODataset(
-        img_path="datasets/visdrone/yolo_format/train",
-        hyp=YOLO_HYPERPARAMETERS,
-        names=['pedestrian', 'person', 'car', 'van', 'bus', 'truck', 'motor', 'bicycle', 'awning-tricycle', 'tricycle',
-               'block', 'car_group']
-    )
-    print(dt[0].keys())
+    load_dataset('../datasets/visdrone')

@@ -178,3 +178,12 @@ datasets/*/*.dt
 /datasets/wisdm/wisdm.dt
 /logs/
 datasets/casas/
+/datasets/ego4d/ego4d_data/
+/datasets/visdrone/test/
+/datasets/visdrone/train/
+/datasets/visdrone/val/
+/datasets/visdrone/VisDrone2018-DET-test-dev/
+/datasets/visdrone/VisDrone2019-DET-train/
+/datasets/visdrone/VisDrone2019-DET-val/
+datasets/ut_har/UT_HAR.zip
+datasets/*/*.zip

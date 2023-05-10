@@ -20,6 +20,7 @@ import loaders.wisdm
 import wandb
 from aggregators.base import FederatedAveraging
 from algorithms.base_fl import base_fl_algorithm
+from analyses.noise import inject_label_noise
 from loaders.utils import ParameterDict
 from models.ut_har import *
 from models.utils import load_model
@@ -36,7 +37,7 @@ os.environ['WANDB_START_METHOD'] = 'thread'
 
 config = configparser.ConfigParser()
 config.read('config.yml')
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 ray.init()
 
 
@@ -82,6 +83,7 @@ class Experiment:
              alpha: float = config['DEFAULT'].getfloat('alpha', 0.1),
              partition_type: str = config['DEFAULT'].get('partition_type', 'dirichlet'),
              amp: bool = config['DEFAULT'].getboolean('amp', False),
+             analysis: str = config['DEFAULT'].get('analysis', 'baseline'),
              trainer: str = config['DEFAULT'].get('trainer', 'BaseTrainer')):
         """
         :param model: neural network used in training
@@ -152,17 +154,18 @@ class Experiment:
         else:
             raise ValueError('partition type not supported')
         milestones = [250, 900]
-        client_datasets = partition(dataset['train'])
-        partition_name = partition_type if partition_type != 'dirichlet' else f'{partition_type}_{alpha}'
-        wandb.init(
+        run = wandb.init(
             # mode='disabled',
             project=config['DEFAULT']['project'],
             entity=config['DEFAULT']['entity'],
             name=f'{fl_algorithm}_{dataset_name}_{partition_type}_{client_num_per_round}_{client_num_in_total}_{client_optimizer}_{lr}'
-                 f'_{server_optimizer}_{model}'
+                 f'_{server_optimizer}_{model}_{analysis}'
                  f'{server_lr}_{alpha}_{datetime.now().strftime("%Y%m%d_%H%M%S")}',
             config=args,
         )
+
+        client_datasets = partition(dataset['train'])
+        partition_name = partition_type if partition_type != 'dirichlet' else f'{partition_type}_{alpha}'
         if dataset_name in ['wisdm', 'widar', 'ut_har', 'casas']:
             data_distribution, class_distribution = compute_client_data_distribution(datasets=client_datasets,
                                                                                      num_classes=num_classes)
@@ -171,8 +174,20 @@ class Experiment:
                        'sample_dist': wandb.Html(sample_dist, inject=False)},
                       step=0)
 
-        data_ref = ray.put(client_datasets[-1].dataset)
-        client_dataset_refs = [{'dataset': data_ref, 'indices': ray.put(client_dataset.indices)} for client_dataset in
+        if 'label_noise' in analysis and dataset_name in ['wisdm', 'widar', 'ut_har', 'casas']:
+            _, error_rate, error_var = analysis.split('-')
+            error_rate = float(error_rate)
+            error_var = float(error_var)
+            client_datasets, noise_percentages = inject_label_noise(client_datasets, num_classes, error_rate, error_var)
+            table = wandb.Table(data=[[d] for d in noise_percentages], columns=['noise_ratio'])
+            wandb.log({"noise_percentages": wandb.plot.histogram(table, "noise_ratio",
+                                                                 title="Label Noise Distribution")
+                       }, step=0)
+
+        data_ref = ray.put(dataset['train'])
+        # client_dataset_refs = [{'dataset': data_ref, 'indices': ray.put(client_dataset.indices)} for client_dataset in
+        #                        client_datasets]
+        client_dataset_refs = [ray.put(client_dataset) for client_dataset in
                                client_datasets]
         global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
         if trainer == 'BaseTrainer':
@@ -195,7 +210,7 @@ class Experiment:
                                                          **{'lr': lr, 'milestones': milestones, 'gamma': 0.1}) for _ \
                                in range(client_num_per_round)]
         elif trainer == 'ultralytics':
-            pt = torch.load('yolov8n.pt.1')
+            # pt = torch.load('yolov8n.pt.1')
             global_model = DetectionModel(cfg=model)
             # global_model.load(pt)
             base_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
