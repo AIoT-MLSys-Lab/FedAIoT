@@ -90,8 +90,8 @@ class DistributedTrainer:
         return self.model.cpu().state_dict()
 
     def step(self, client_idx, client_data, round_idx, device='cuda'):
-        client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
-                                    indices=ray.get(client_data['indices']))
+        # client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
+        #                             indices=ray.get(client_data['indices']))
         if len(client_data) < self.batch_size:
             self.batch_size = len(client_data)
         weight = len(client_data)

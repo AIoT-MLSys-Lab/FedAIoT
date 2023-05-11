@@ -22,7 +22,7 @@ from utils import WarmupScheduler
 
 # from validator import YoloValidator
 
-@ray.remote(num_gpus=8.0)
+@ray.remote(num_gpus=1.0)
 class DistributedUltralyticsYoloTrainer:
     def __init__(self,
                  model_path: str,
