@@ -9,7 +9,6 @@ from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 
 from models.utils import load_model
-from partition.utils import IndexedSubset
 from utils import WarmupScheduler
 
 
@@ -44,6 +43,7 @@ class DistributedTrainer:
                  amp=True, ):
         set_seed(1)
         from aggregators.torchcomponentrepository import TorchComponentRepository
+        self.dataset_name = dataset_name
         self.scheduler = None
         self.amp = amp
         self.model = load_model(model_name=model_name, trainer='BaseTrainer', dataset_name=dataset_name)
@@ -108,7 +108,7 @@ class DistributedTrainer:
         self.model.train()
         print("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " Samples " + str(weight))
         if len(client_dataloader) < 1:
-            warnings.warn("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " dataloader " + str(len(
+            warnings.warn("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " data_loader " + str(len(
                 client_dataloader)))
         logging.info(f"Client ID {client_idx} round Idx {round_idx}")
 
@@ -128,6 +128,8 @@ class DistributedTrainer:
 
                 with autocast(device_type=device, ):  # Enable mixed precision training
                     output = self.model(data)
+                    if self.dataset_name == 'energy':
+                        output = output.reshape((-1,))
                     loss = criterion(output, labels)
 
                 # Replace loss.backward() with the following lines to scale the loss and update the gradients

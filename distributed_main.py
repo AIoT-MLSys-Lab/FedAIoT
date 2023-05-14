@@ -17,6 +17,7 @@ import loaders.ut_har
 import loaders.visdrone
 import loaders.widar
 import loaders.wisdm
+import loaders.energy
 import wandb
 from aggregators.base import FederatedAveraging
 from algorithms.base_fl import base_fl_algorithm
@@ -134,6 +135,9 @@ class Experiment:
         elif dataset_name == 'casas':
             dataset = loaders.casas.load_dataset()
             num_classes = 12
+        elif dataset_name == 'energy':
+            dataset = loaders.energy.load_dataset()
+            num_classes = 10
         else:
             return
 
@@ -153,7 +157,7 @@ class Experiment:
             client_num_in_total = 1
         else:
             raise ValueError('partition type not supported')
-        milestones = [250, 900]
+        milestones = []
         run = wandb.init(
             # mode='disabled',
             project=config['DEFAULT']['project'],
@@ -192,9 +196,9 @@ class Experiment:
         global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
         if trainer == 'BaseTrainer':
             from scorers.classification_evaluator import evaluate
-            if dataset_name in {'emognition'}:
+            if dataset_name in {'emognition', 'energy'}:
                 from scorers.regression_evaluator import evaluate
-                criterion = nn.L1Loss()
+                criterion = nn.MSELoss()
             else:
                 criterion = nn.CrossEntropyLoss()
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
@@ -293,7 +297,7 @@ class Experiment:
             print(local_metrics_avg)
             wandb.log(local_metrics_avg, step=round_idx)
             if round_idx % test_frequency == 0:
-                metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes)
+                metrics = evaluate(global_model, dataset['test'], device=device)
                 for k, v in metrics.items():
                     if type(v) == torch.Tensor:
                         v = v.item()

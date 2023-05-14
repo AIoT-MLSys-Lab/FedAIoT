@@ -3,7 +3,7 @@ import inspect
 from torch import nn
 from ultralytics.nn.tasks import DetectionModel
 
-from models import widar, wisdm, ut_har, emognition, casas
+from models import widar, wisdm, ut_har, emognition, casas, energy
 
 MODULE_MAP = {
     'wisdm': wisdm,
@@ -11,6 +11,7 @@ MODULE_MAP = {
     'ut_har': ut_har,
     'emognition': emognition,
     'casas': casas,
+    'energy': energy
 }
 
 
