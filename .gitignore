@@ -183,7 +183,7 @@ datasets/casas/
 /datasets/visdrone/VisDrone2018-DET-test-dev/
 /datasets/visdrone/VisDrone2019-DET-train/
 /datasets/visdrone/VisDrone2019-DET-val/
-/datasets/*/*.zip!/datasets/ego4d/negative/
-
-!/datasets/ego4d/positive/
+/datasets/*/*.zip
+/datasets/ego4d/negative/
+/datasets/ego4d/positive/
 /datasets/ego4d/ego4d_data_v2/

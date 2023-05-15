@@ -126,7 +126,7 @@ class YoloValidator:
         desc = self.get_desc()
         # NOTE: keeping `not self.training` in tqdm will eliminate pbar after segmentation evaluation during training,
         # which may affect classification task since this arg is in yolov5/classify/val.py.
-        # bar = tqdm(self.dataloader, desc, n_batches, not self.training, bar_format=TQDM_BAR_FORMAT)
+        # bar = tqdm(self.data_loader, desc, n_batches, not self.training, bar_format=TQDM_BAR_FORMAT)
         bar = tqdm(self.dataloader, desc, n_batches, bar_format=TQDM_BAR_FORMAT)
         self.init_metrics(de_parallel(model))
         self.jdict = []  # empty before each val
@@ -160,12 +160,12 @@ class YoloValidator:
         stats = self.get_stats()
         # self.check_stats(stats)
         self.print_results()
-        # self.speed = dict(zip(self.speed.keys(), (x.t / len(self.dataloader.dataset) * 1E3 for x in dt)))
+        # self.speed = dict(zip(self.speed.keys(), (x.t / len(self.data_loader.dataset) * 1E3 for x in dt)))
         self.finalize_metrics()
         # self.run_callbacks('on_val_end')
         # if self.training:
         #     model.float()
-        #     results = {**stats, **trainer.label_loss_items(self.loss.cpu() / len(self.dataloader), prefix='val')}
+        #     results = {**stats, **trainer.label_loss_items(self.loss.cpu() / len(self.data_loader), prefix='val')}
         #     return {k: round(float(v), 5) for k, v in results.items()}  # return results as 5 decimal place floats
         # else:
         #     LOGGER.info('Speed: %.1fms preprocess, %.1fms inference, %.1fms loss, %.1fms postprocess per image' %
@@ -327,8 +327,8 @@ class YoloValidator:
 
 # class DetectionValidator(BaseValidator):
 #
-#     def __init__(self, dataloader=None, save_dir=None, pbar=None, args=None):
-#         super().__init__(dataloader, save_dir, pbar, args)
+#     def __init__(self, data_loader=None, save_dir=None, pbar=None, args=None):
+#         super().__init__(data_loader, save_dir, pbar, args)
 #         self.args.task = 'detect'
 #         self.is_coco = False
 #         self.class_map = None
@@ -408,7 +408,7 @@ class YoloValidator:
 #             pred = anno.loadRes(str(pred_json))  # init predictions api (must pass string, not Path)
 #             eval = COCOeval(anno, pred, 'bbox')
 #             if self.is_coco:
-#                 eval.params.imgIds = [int(Path(x).stem) for x in self.dataloader.dataset.im_files]  # images to eval
+#                 eval.params.imgIds = [int(Path(x).stem) for x in self.data_loader.dataset.im_files]  # images to eval
 #             eval.evaluate()
 #             eval.accumulate()
 #             eval.summarize()
