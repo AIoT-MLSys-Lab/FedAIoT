@@ -16,9 +16,9 @@ DATASET_URLS = [
 ]
 
 FILE_IDs = [
-    ('1a2oHjcEcwXP8oUF95qiwrqzACb2YlUhn', 'VisDrone2019-DET-train.zip', 'train'),
-    ('1bxK5zgLn0_L8x276eKkuYA_FzwCIjb59', 'VisDrone2019-DET-val.zip', 'val'),
-    ('1PFdW_VFSCfZ_sTSZAGjQdifF_Xd5mf0V', 'VisDrone2019-DET-test-dev.zip', 'test')
+    ('1i8iZ-zYBgWwzX9355HIYrWM1uKeqWW0S', 'VisDrone2019-DET-train.zip', 'train'),
+    ('1qJKZdv2jEv2c7SfEdMwWR3KOyj_mfhBN', 'VisDrone2019-DET-val.zip', 'val'),
+    ('1nTC4cqNqT_IJ7EIH28i9YTVGNFq5WgqL', 'VisDrone2019-DET-test-dev.zip', 'test')
 ]
 
 FOLODER_SPLITS = [
