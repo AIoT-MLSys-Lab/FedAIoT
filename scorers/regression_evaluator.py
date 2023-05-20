@@ -22,7 +22,7 @@ from scorers.utils import LossMetric
 #         return torch.tensor(r2_score(self.targets, self.preds))
 
 
-def evaluate(model, test_data, device):
+def evaluate(model, test_data, device, num_classes=1):
     model.to(device)
     test_dataloader = torch.utils.data.DataLoader(
         dataset=test_data,

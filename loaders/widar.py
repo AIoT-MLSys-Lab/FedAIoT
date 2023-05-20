@@ -156,3 +156,8 @@ def load_dataset(split=[x for x in list(range(0, 17)) if x not in [0, 1, 2, 3, 1
         'split': split
     }
     return data_dict
+
+
+if __name__ == '__main__':
+    dt = load_dataset()
+    print(len(dt['train']))

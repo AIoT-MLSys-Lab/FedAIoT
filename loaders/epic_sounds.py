@@ -3,18 +3,47 @@ import time
 from datetime import timedelta
 
 import h5py
+import numpy as np
 import pandas as pd
 import torch
 from torch import nn
 from torch.optim import Adam
+from torchmetrics import F1Score
 from tqdm import tqdm
 
 from loaders.pack_audio import pack_audio
 from loaders.spec_augment import combined_transforms
 from loaders.utils import pack_pathway_output
+
 from loaders.vgg_sound import resnet18, ResNet, BasicBlock
 
 os.environ['TORCH_USE_CUDA_DSA'] = 'true'
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
+
+def mixup_data(x, y, alpha=1.0):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    lam = np.random.beta(alpha, alpha) if alpha > 0 else 1
+    # Get random permutation for batch
+    batch_size = x.size(0)
+    index = torch.randperm(batch_size).to(x.device)
+
+    # Mixup data
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+
+    # Create label/mixup label pairs
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam, weights=None):
+    loss_a = criterion(pred, y_a)
+    loss_b = criterion(pred, y_b)
+    if weights is not None:
+        loss_a = (loss_a * weights).sum(1).mean()
+        loss_b = (loss_b * weights).sum(1).mean()
+    return lam * loss_a + (1 - lam) * loss_b
+
 
 def timestamp_to_sec(timestamp):
     x = time.strptime(timestamp, '%H:%M:%S.%f')
@@ -120,6 +149,7 @@ class Epicsounds(torch.utils.data.Dataset):
                 len(self._video_records), path_annotations_pickle
             )
         )
+        self.targets = [x.label for x in self._video_records]
 
     def __getitem__(self, index):
         """
@@ -160,17 +190,24 @@ class Epicsounds(torch.utils.data.Dataset):
             spectrogram = combined_transforms(spectrogram)
             # C F T -> C T F
             spectrogram = spectrogram.permute(0, 2, 1)
-        label = self._video_records[index].label
+        label = self.targets[index]
         # spectrogram = pack_pathway_output(spectrogram)
 
-        metadata = {
-            "annotation_id": self._video_records[index].annotation_id
-        }
+        # metadata = {
+        #     "annotation_id": self._video_records[index].annotation_id
+        # }
 
-        return spectrogram, label, index, metadata
+        return spectrogram, label
 
     def __len__(self):
         return len(self._video_records)
+
+
+def load_dataset():
+    return {
+        'train': Epicsounds('train'),
+        'test': Epicsounds('test'),
+    }
 
 
 if __name__ == '__main__':
@@ -197,17 +234,26 @@ if __name__ == '__main__':
         running_loss = 0.0
         for i, data in tqdm(enumerate(train_loader, 0), total=len(train_loader)):
             # Get the inputs; data is a list of [inputs, labels]
-            inputs, labels, _, _ = data
+            inputs, labels = data
 
             # Transfer to GPU
-            inputs, labels = inputs.cuda(), labels.cuda()
+
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
             # forward + backward + optimize
+            inputs, labels_a, labels_b, lam = mixup_data(inputs, labels, alpha=0.8)
+            inputs, labels_a, labels_b = inputs.cuda(), labels_a.cuda(),  labels_b.cuda()
             outputs = model(inputs)
-            loss = criterion(outputs, labels)
+            # loss = criterion(outputs, labels)
+            loss = mixup_criterion(
+                criterion,
+                outputs,
+                labels_a,
+                labels_b,
+                lam
+            )
             loss.backward()
             optimizer.step()
 

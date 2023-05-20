@@ -242,3 +242,8 @@ def load_dataset(window=200, overlap=0.5, reprocess=True, split=0.8):
         }, 'datasets/wisdm/wisdm.dt')
     data = torch.load('datasets/wisdm/wisdm.dt')
     return data
+
+
+if __name__ == '__main__':
+    dt = load_dataset()
+    print(len(dt['train']))

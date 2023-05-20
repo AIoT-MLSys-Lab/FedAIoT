@@ -32,3 +32,9 @@ def load_dataset(datasetName='all'):
         'test': test_dataset
     }
     return data_dict
+
+
+if __name__ == '__main__':
+    dt = load_dataset()
+    print(len(dt['train']))
+    print(dt['train'][0][0].shape)

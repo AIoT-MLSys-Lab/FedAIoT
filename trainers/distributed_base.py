@@ -7,9 +7,34 @@ import torch
 from torch import autocast
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from models.utils import load_model
 from utils import WarmupScheduler
+
+
+def mixup_data(x, y, alpha=1.0):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    lam = np.random.beta(alpha, alpha) if alpha > 0 else 1
+    # Get random permutation for batch
+    batch_size = x.size(0)
+    index = torch.randperm(batch_size).to(x.device)
+
+    # Mixup data
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+
+    # Create label/mixup label pairs
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam, weights=None):
+    loss_a = criterion(pred, y_a)
+    loss_b = criterion(pred, y_b)
+    if weights is not None:
+        loss_a = (loss_a * weights).sum(1).mean()
+        loss_b = (loss_b * weights).sum(1).mean()
+    return lam * loss_a + (1 - lam) * loss_b
 
 
 def set_seed(seed: int):
@@ -36,7 +61,8 @@ class DistributedTrainer:
                  criterion,
                  optimizer_name,
                  lr,
-                 batch_size=20,
+                 batch_size,
+                 class_mixup,
                  shuffle=True,
                  scheduler='LinearLR', gamma=1, milestones=[],
                  epochs=1,
@@ -54,7 +80,7 @@ class DistributedTrainer:
         self.optimizer = None
         self.param_size = None if self.model is None else sum(p.numel() for p in self.model.parameters())
         self.lr = lr
-        self.batch_size = 20
+        self.mixup = class_mixup
         self.shuffle = shuffle
         self.pin_memory = True
         self.num_workers = 1
@@ -120,17 +146,28 @@ class DistributedTrainer:
         for epoch in range(self.epochs):
             batch_loss = []
             loss = np.nan
-            for batch_idx, (data, labels) in enumerate(client_dataloader):
+            for batch_idx, (data, labels) in tqdm(enumerate(client_dataloader), total=len(client_dataloader)):
                 if len(labels) <= 1:
                     continue
                 data, labels = data.to(device), labels.to(device)
                 optimizer.zero_grad()
 
                 with autocast(device_type=device, ):  # Enable mixed precision training
+                    if self.mixup != 1:
+                        data, labels_a, labels_b, lam = mixup_data(data, labels, alpha=self.mixup)
                     output = self.model(data)
                     if self.dataset_name == 'energy':
                         output = output.reshape((-1,))
-                    loss = criterion(output, labels)
+                    if self.mixup != 1:
+                        loss = mixup_criterion(
+                            criterion,
+                            output,
+                            labels_a,
+                            labels_b,
+                            lam
+                        )
+                    else:
+                        loss = criterion(output, labels)
 
                 # Replace loss.backward() with the following lines to scale the loss and update the gradients
                 self.scaler.scale(loss).backward()

@@ -43,5 +43,5 @@ def load_dataset(root_dir='./datasets/ut_har'):
 
 if __name__ == '__main__':
     dataset = load_dataset()
+    print(len(dataset['train']))
     print(dataset['train'][0][0].shape)
-    print(dataset['train'][0][1])

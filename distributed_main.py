@@ -18,6 +18,7 @@ import loaders.visdrone
 import loaders.widar
 import loaders.wisdm
 import loaders.energy
+import loaders.epic_sounds
 import wandb
 from aggregators.base import FederatedAveraging
 from algorithms.base_fl import base_fl_algorithm
@@ -38,7 +39,7 @@ os.environ['WANDB_START_METHOD'] = 'thread'
 
 config = configparser.ConfigParser()
 config.read('config.yml')
-# os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 ray.init()
 
 
@@ -85,7 +86,9 @@ class Experiment:
              partition_type: str = config['DEFAULT'].get('partition_type', 'dirichlet'),
              amp: bool = config['DEFAULT'].getboolean('amp', False),
              analysis: str = config['DEFAULT'].get('analysis', 'baseline'),
-             trainer: str = config['DEFAULT'].get('trainer', 'BaseTrainer')):
+             trainer: str = config['DEFAULT'].get('trainer', 'BaseTrainer'),
+             class_mixup: float = config['DEFAULT'].getfloat('class_mixup', 1),
+             ):
         """
         :param model: neural network used in training
         :param dataset_name: dataset used for training
@@ -138,6 +141,9 @@ class Experiment:
         elif dataset_name == 'energy':
             dataset = loaders.energy.load_dataset()
             num_classes = 10
+        elif dataset_name == 'epic_sounds':
+            dataset = loaders.epic_sounds.load_dataset()
+            num_classes = 44
         else:
             return
 
@@ -208,8 +214,10 @@ class Experiment:
                                                          dataset_name=dataset_name,
                                                          state_dict=global_model.state_dict(),
                                                          criterion=criterion,
+                                                         batch_size=batch_size,
                                                          optimizer_name=client_optimizer,
                                                          epochs=epochs, scheduler='multisteplr',
+                                                         class_mixup=class_mixup,
                                                          amp=amp,
                                                          **{'lr': lr, 'milestones': milestones, 'gamma': 0.1}) for _ \
                                in range(client_num_per_round)]
@@ -297,7 +305,7 @@ class Experiment:
             print(local_metrics_avg)
             wandb.log(local_metrics_avg, step=round_idx)
             if round_idx % test_frequency == 0:
-                metrics = evaluate(global_model, dataset['test'], device=device)
+                metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes)
                 for k, v in metrics.items():
                     if type(v) == torch.Tensor:
                         v = v.item()

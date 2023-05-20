@@ -386,7 +386,7 @@ def load_muse_data(split=0.8, window_length=256 * 10, overlap=0.8, reprocess=Fal
 if __name__ == '__main__':
     dt = load_bracelet_data(window_length=40, reprocess=True, participants=[22, 23])
     # print(len(dt['full_dataset']))
-    # print(len(dt['train']))
+    print(len(dt['train']))
     # print(len(dt['test']))
     # print(dt['client_mapping'].keys())
     # print(dt['split']['train'].keys())
