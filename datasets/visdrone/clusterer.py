@@ -18,6 +18,7 @@ transformations = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 model = models.resnet50(pretrained=True)
 
 
@@ -44,10 +45,10 @@ def extract_imagenet_features(img_path, transform=transformations, model=model):
 
 
 class VisDroneDataset(Dataset):
-    def __init__(self, ann_dir, data_dir, transform=None):
-        self.coco = coco.COCO(ann_dir)
+    def __init__(self, data_dir, transform=None):
+        # self.coco = coco.COCO(ann_dir)
         self.data_dir = data_dir
-        self.images = self.coco.getImgIds()
+        self.images = [x for x in os.listdir(data_dir) if '.jpg' in x]
         self.transform = transform
         # self.images = os.listdir(os.path.join(data_dir, 'images'))
         # self.annotations = os.listdir(os.path.join(data_dir, 'annotations'))
@@ -58,8 +59,7 @@ class VisDroneDataset(Dataset):
     def __getitem__(self, idx):
         # Load the image
         # image = Image.open(os.path.join(self.data_dir, self.coco.loadImgs(self.images[idx])[0]['file_name']))
-        image = extract_imagenet_features(
-            os.path.join(self.data_dir, self.coco.loadImgs(self.images[idx])[0]['file_name']))
+        image = extract_imagenet_features(os.path.join(self.data_dir, self.images[idx]))
         if self.transform:
             image = self.transform(image)
 
@@ -91,7 +91,7 @@ transformations = transforms.Compose([
                          std=[0.229, 0.224, 0.225])
 ])
 
-dataset = VisDroneDataset(ann_dir='visdrone/annotations/instances_train.json', data_dir='visdrone/train',
+dataset = VisDroneDataset(data_dir='train/images',
                           transform=None)
 
 # Load a pretrained ResNet-50 model
@@ -113,7 +113,7 @@ features = np.array(features)
 # Perform K-means clustering on the features to cluster the images into 100 clusters
 from sklearn.cluster import KMeans, DBSCAN
 
-kmeans = KMeans(n_clusters=100).fit(features, )
+kmeans = KMeans(n_clusters=10).fit(features, )
 df = pd.DataFrame({'image_id': ids, 'cluster': kmeans.labels_})
 df.to_csv('split.csv')
 print(df.groupby('cluster').count())
