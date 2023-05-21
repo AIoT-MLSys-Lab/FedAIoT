@@ -64,7 +64,7 @@ def compute_client_data_distribution(datasets: List[Sized | Dataset], num_classe
     for i in range(len(datasets)):
         class_counts = torch.zeros(num_classes)
         for j in range(len(datasets[i])):
-            class_counts[datasets[i][j][1]] += 1
+            class_counts[int(datasets[i].targets[j])] += 1
         class_counts = class_counts.numpy()
         data_distribution.append(np.sum(class_counts))
         class_counts = class_counts / np.sum(class_counts)
@@ -133,5 +133,3 @@ def get_html_plots(data_distribution, class_distribution):
     Path('logs/').mkdir(exist_ok=True)
     (heatmap + text).save('logs/class_dist.html'), data_bar.save('logs/data_dist.html')
     return 'logs/class_dist.html', 'logs/data_dist.html'
-
-

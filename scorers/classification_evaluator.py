@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch import nn
 from torchmetrics import Accuracy, F1Score, ConfusionMatrix
@@ -18,22 +19,13 @@ def evaluate(model, test_data, device, num_classes=12):
     )
     model.eval()
 
-    if num_classes > 1:
-        criterion = nn.CrossEntropyLoss(reduction="sum").to(device)
-        metrics = {
-            'accuracy': Accuracy(task="multiclass", num_classes=num_classes).to(device),
-            'f1_score': F1Score(task="multiclass", num_classes=num_classes, average='macro').to(device),
-            'confusion': ConfusionMatrix(task="multiclass", num_classes=num_classes).to(device),
-        }
-        lbl_type = torch.LongTensor
-    else:
-        criterion = nn.BCELoss(reduction="sum").to(device)
-        metrics = {
-            'accuracy': Accuracy(task="binary", num_classes=num_classes).to(device),
-            'f1_score': F1Score(task="binary", num_classes=num_classes, average='macro').to(device),
-            'confusion': ConfusionMatrix(task="binary", num_classes=num_classes).to(device),
-        }
-        lbl_type = torch.float32
+    criterion = nn.CrossEntropyLoss(reduction="sum").to(device)
+    metrics = {
+        'accuracy': Accuracy(task="multiclass", num_classes=num_classes).to(device),
+        'f1_score': F1Score(task="multiclass", num_classes=num_classes, average='macro').to(device),
+        'confusion': ConfusionMatrix(task="multiclass", num_classes=num_classes).to(device),
+    }
+    lbl_type = torch.LongTensor
     losses = {'cross_entropy_loss': LossMetric(criterion).to(device)}
     with torch.no_grad():
         label_list, pred_list = list(), list()
@@ -45,6 +37,7 @@ def evaluate(model, test_data, device, num_classes=12):
             for lm in losses.values():
                 lm.update(output, labels)
             # pred = output.data.max(1, keepdim=True)[1]
+
             for mm in metrics.values():
                 mm.update(output, labels)
             # pred = output.data.max(1, keepdim=True)[

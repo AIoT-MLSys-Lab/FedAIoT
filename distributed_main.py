@@ -190,7 +190,7 @@ class Experiment:
             num_classes = 7
         elif dataset_name == 'emognition':
             dataset = loaders.emognition.load_bracelet_data(reprocess=True)
-            num_classes = 9
+            num_classes = 2
         elif dataset_name == 'casas':
             dataset = loaders.casas.load_dataset()
             num_classes = 12
@@ -268,7 +268,7 @@ class Experiment:
             if dataset_name in {'energy'}:
                 from scorers.regression_evaluator import evaluate
                 criterion = nn.MSELoss()
-            elif dataset_name in {'emognition', 'ego4d'}:
+            elif dataset_name in {'ego4d'}:
                 criterion = nn.BCEWithLogitsLoss()
             else:
                 criterion = nn.CrossEntropyLoss()

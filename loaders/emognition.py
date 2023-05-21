@@ -39,7 +39,8 @@ class EmognitionDataset(Dataset):
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: The data and target tensors for the specified index.
         """
-        return torch.tensor(self.data['X'][index], dtype=torch.float), torch.tensor(self.data['Y'][index])
+        return torch.tensor(self.data['X'][index], dtype=torch.float), \
+            torch.tensor(self.data['Y'][index])
 
     def __len__(self):
         """
@@ -240,7 +241,7 @@ def process_data(dct, window_length=int(10 / .10), overlap=0.8):
     data = np.concatenate(data, axis=0)
     targets = np.array(targets)
     median_targets = np.median(targets, axis=0)
-    targets = np.where(targets > median_targets, 1.0, 0.0)
+    targets = np.where(targets > median_targets, 1, 0)
     return data, targets, client_mapping
 
 

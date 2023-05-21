@@ -2,7 +2,7 @@ import torch.nn as nn
 
 
 class LSTMRegressor(nn.Module):
-    def __init__(self, input_size=4, output_size=1, hidden_size=128, num_layers=4):
+    def __init__(self, input_size=5, output_size=2, hidden_size=128, num_layers=4):
         super(LSTMRegressor, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
         self.fc = nn.Linear(hidden_size, output_size)

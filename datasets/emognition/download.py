@@ -7,7 +7,7 @@ import gdown
 FILE_ID = "1XUYMBP0p2VSJTppgE2BT87rr6MK0vagl"
 
 # Define the directory where you want to save the dataset
-SAVE_DIR = "./"
+SAVE_DIR = "./datasets/emognition"
 
 
 # Function to download the file from Google Drive
