@@ -3,7 +3,7 @@ import inspect
 from torch import nn
 from ultralytics.nn.tasks import DetectionModel
 
-from models import widar, wisdm, ut_har, emognition, casas, energy, epic_sounds
+from models import widar, wisdm, ut_har, emognition, casas, energy, ego4d, epic_sounds
 
 MODULE_MAP = {
     'wisdm': wisdm,
@@ -12,6 +12,7 @@ MODULE_MAP = {
     'emognition': emognition,
     'casas': casas,
     'energy': energy,
+    'ego4d': ego4d,
     'epic_sounds': epic_sounds
 }
 

@@ -1,6 +1,6 @@
 [DEFAULT]
-model = MLP
-dataset = energy
+model = CNNLSTM
+dataset = ego4d
 data_dir = ../data/
 client_num_in_total = 30
 client_num_per_round = 6
@@ -16,7 +16,7 @@ test_frequency = 2
 server_optimizer = sgd
 server_lr = 1
 alpha = 0.25
-partition_type = dirichlet
+partition_type = central
 device=cuda
 trainer = BaseTrainer
 amp = False

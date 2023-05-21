@@ -1,4 +1,6 @@
+import configparser
 import logging
+import os
 import warnings
 
 import numpy as np
@@ -11,6 +13,14 @@ from tqdm import tqdm
 
 from models.utils import load_model
 from utils import WarmupScheduler
+
+
+system_config = configparser.ConfigParser()
+system_config.read('system.yml')
+num_gpus = os.environ['num_gpus'] if 'num_gpus' in os.environ else system_config['DEFAULT'].getint('num_gpus', 1)
+num_trainers_per_gpu = os.environ['num_trainers_per_gpu'] if 'num_gpus' in os.environ else system_config[
+    'DEFAULT'].getint(
+    'num_trainers_per_gpu', 1)
 
 
 def mixup_data(x, y, alpha=1.0):
@@ -53,7 +63,7 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
 
-@ray.remote(num_gpus=0.2)
+@ray.remote(num_gpus=1.0/num_trainers_per_gpu)
 class DistributedTrainer:
     def __init__(self, model_name: str,
                  dataset_name: str,

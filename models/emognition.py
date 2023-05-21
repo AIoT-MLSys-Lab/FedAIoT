@@ -2,20 +2,21 @@ import torch.nn as nn
 
 
 class LSTMRegressor(nn.Module):
-    def __init__(self, input_size=4, output_size=9, hidden_size=128, num_layers=4):
+    def __init__(self, input_size=4, output_size=1, hidden_size=128, num_layers=4):
         super(LSTMRegressor, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
         self.fc = nn.Linear(hidden_size, output_size)
+        self.output_activation = nn.Sigmoid()
 
     def forward(self, x):
         # Input shape: (batch_size, sequence_length, num_features)
         x, _ = self.lstm(x)  # LSTM output shape: (batch_size, sequence_length, hidden_size)
         x = self.fc(x[:, -1, :])  # Use the last LSTM output; shape: (batch_size, output_size)
-        return x
+        return self.output_activation(x)
 
 
 class CNN_LSTM_Regressor(nn.Module):
-    def __init__(self, input_size=9, num_emotions=9):
+    def __init__(self, input_size=9, num_emotions=1):
         super(CNN_LSTM_Regressor, self).__init__()
 
         self.conv1 = nn.Conv1d(input_size, 64, kernel_size=3, padding=1)
@@ -23,6 +24,7 @@ class CNN_LSTM_Regressor(nn.Module):
         self.max_pool = nn.MaxPool1d(kernel_size=2)
         self.lstm = nn.LSTM(64, 128, num_layers=1, batch_first=True)
         self.fc = nn.Linear(128, num_emotions)
+        self.output_activation = nn.Sigmoid()
 
     def forward(self, x):
         # Input shape: (batch_size, sequence_length, num_features)
@@ -41,4 +43,4 @@ class CNN_LSTM_Regressor(nn.Module):
         # Fully connected layer
         x = self.fc(x[:, -1, :])  # Use the last LSTM output
 
-        return x
+        return self.output_activation(x)

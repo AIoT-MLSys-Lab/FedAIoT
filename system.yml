@@ -1,0 +1,3 @@
+[DEFAULT]
+num_gpus = 1
+num_trainers_per_gpu = 1

@@ -132,12 +132,13 @@ def load_dataset(root: str = "datasets/visdrone",
     Returns:
         Dict[str, Union[YOLODataset, Dict[str, List[int]], Dict[str, Dict[int, List[int]]]]]: A dictionary containing train, val, and test datasets, client_mapping, and split information.
     """
+    print(f"Loading VisDrone dataset from {os.path.join(root, 'train')}...")
     dataset_train = YOLODataset(
         img_path=os.path.join(root, 'train'),
         hyp=hyp,
         augment=augment,
         names=['pedestrian', 'person', 'car', 'van', 'bus', 'truck', 'motor', 'bicycle', 'awning-tricycle', 'tricycle',
-               'block', 'car_group']
+               'block', 'car_group'],
     )
 
     dataset_val = YOLODataset(
@@ -157,6 +158,11 @@ def load_dataset(root: str = "datasets/visdrone",
     )
 
     df = pd.read_csv(f'{root}/split.csv', index_col='image_id')
+    targets = []
+    for i, d in tqdm(enumerate(dataset_train)):
+        p = dataset_train[i]['im_file'].split('/')[-1]
+        c = df.loc[p]['cluster']
+        targets.append(c)
     if not Path('visdrone_client_mapping.pt').exists():
         client_mapping = {k: [] for k in range(100)}
         for i, d in tqdm(enumerate(dataset_train)):
@@ -164,6 +170,7 @@ def load_dataset(root: str = "datasets/visdrone",
             c = df.loc[p]['cluster']
             client_mapping[c].append(i)
         torch.save(client_mapping, 'visdrone_client_mapping.pt')
+    dataset_train.targets = targets
     client_mapping = torch.load('visdrone_client_mapping.pt')
     return {
         'train': dataset_train,

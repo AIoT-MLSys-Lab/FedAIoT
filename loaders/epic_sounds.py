@@ -15,7 +15,6 @@ from loaders.pack_audio import pack_audio
 from loaders.spec_augment import combined_transforms
 from loaders.utils import pack_pathway_output
 
-from loaders.vgg_sound import resnet18, ResNet, BasicBlock
 
 os.environ['TORCH_USE_CUDA_DSA'] = 'true'
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -210,77 +209,77 @@ def load_dataset():
     }
 
 
-if __name__ == '__main__':
-    model = ResNet(block=BasicBlock, layers=[2, 2, 2, 2], num_classes=44).cuda()
-    train_data = Epicsounds('train')
-    test_data = Epicsounds('test')
-    train_loader = torch.utils.data.DataLoader(
-        train_data,
-        batch_size=64,
-        shuffle=True,
-        num_workers=1
-    )
-    test_loader = torch.utils.data.DataLoader(
-        test_data,
-        batch_size=64,
-        shuffle=True,
-        num_workers=10
-    )
-    # Define the loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = Adam(model.parameters(), lr=0.001)
-
-    for epoch in range(10):  # loop over the dataset multiple times
-        running_loss = 0.0
-        for i, data in tqdm(enumerate(train_loader, 0), total=len(train_loader)):
-            # Get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data
-
-            # Transfer to GPU
-
-
-            # zero the parameter gradients
-            optimizer.zero_grad()
-
-            # forward + backward + optimize
-            inputs, labels_a, labels_b, lam = mixup_data(inputs, labels, alpha=0.8)
-            inputs, labels_a, labels_b = inputs.cuda(), labels_a.cuda(),  labels_b.cuda()
-            outputs = model(inputs)
-            # loss = criterion(outputs, labels)
-            loss = mixup_criterion(
-                criterion,
-                outputs,
-                labels_a,
-                labels_b,
-                lam
-            )
-            loss.backward()
-            optimizer.step()
-
-            # print statistics
-            running_loss += loss.cpu().item()
-            if i % 10 == 1:  # print every 2000 mini-batches
-                print(labels.shape)
-                print(outputs.shape)
-                print(inputs.shape)
-                print(max(labels))
-                print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 2000))
-                running_loss = 0.0
-
-    print('Finished Training')
-    # Testing
-    correct = 0
-    total = 0
-    model.eval()  # switch model to evaluation mode
-    with torch.no_grad():
-        for data in test_loader:
-            images, labels, _, _ = data
-            images, labels = images.cuda(), labels.cuda()
-            outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-    print('Accuracy of the network on test images: %d %%' % (
-            100 * correct / total))
+# if __name__ == '__main__':
+#     model = ResNet(block=BasicBlock, layers=[2, 2, 2, 2], num_classes=44).cuda()
+#     train_data = Epicsounds('train')
+#     test_data = Epicsounds('test')
+#     train_loader = torch.utils.data.DataLoader(
+#         train_data,
+#         batch_size=64,
+#         shuffle=True,
+#         num_workers=1
+#     )
+#     test_loader = torch.utils.data.DataLoader(
+#         test_data,
+#         batch_size=64,
+#         shuffle=True,
+#         num_workers=10
+#     )
+#     # Define the loss function and optimizer
+#     criterion = nn.CrossEntropyLoss()
+#     optimizer = Adam(model.parameters(), lr=0.001)
+#
+#     for epoch in range(10):  # loop over the dataset multiple times
+#         running_loss = 0.0
+#         for i, data in tqdm(enumerate(train_loader, 0), total=len(train_loader)):
+#             # Get the inputs; data is a list of [inputs, labels]
+#             inputs, labels = data
+#
+#             # Transfer to GPU
+#
+#
+#             # zero the parameter gradients
+#             optimizer.zero_grad()
+#
+#             # forward + backward + optimize
+#             inputs, labels_a, labels_b, lam = mixup_data(inputs, labels, alpha=0.8)
+#             inputs, labels_a, labels_b = inputs.cuda(), labels_a.cuda(),  labels_b.cuda()
+#             outputs = model(inputs)
+#             # loss = criterion(outputs, labels)
+#             loss = mixup_criterion(
+#                 criterion,
+#                 outputs,
+#                 labels_a,
+#                 labels_b,
+#                 lam
+#             )
+#             loss.backward()
+#             optimizer.step()
+#
+#             # print statistics
+#             running_loss += loss.cpu().item()
+#             if i % 10 == 1:  # print every 2000 mini-batches
+#                 print(labels.shape)
+#                 print(outputs.shape)
+#                 print(inputs.shape)
+#                 print(max(labels))
+#                 print('[%d, %5d] loss: %.3f' %
+#                       (epoch + 1, i + 1, running_loss / 2000))
+#                 running_loss = 0.0
+#
+#     print('Finished Training')
+#     # Testing
+#     correct = 0
+#     total = 0
+#     model.eval()  # switch model to evaluation mode
+#     with torch.no_grad():
+#         for data in test_loader:
+#             images, labels, _, _ = data
+#             images, labels = images.cuda(), labels.cuda()
+#             outputs = model(images)
+#             _, predicted = torch.max(outputs.data, 1)
+#             total += labels.size(0)
+#             correct += (predicted == labels).sum().item()
+#
+#     print('Accuracy of the network on test images: %d %%' % (
+#             100 * correct / total))

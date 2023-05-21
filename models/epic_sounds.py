@@ -258,7 +258,7 @@ class Bottleneck(nn.Module):
         return out
 
 
-def _resnet(arch, block, layers, progress, **kwargs):
+def _resnet(arch, block, layers, state_dict, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
     model.load_state_dict(state_dict)
     return model

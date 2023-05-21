@@ -1,5 +1,7 @@
 # Ultralytics YOLO 🚀, GPL-3.0 license
+import configparser
 import logging
+import os
 
 import ray
 import torch
@@ -20,9 +22,17 @@ from partition.utils import IndexedSubset
 from utils import WarmupScheduler
 
 
+system_config = configparser.ConfigParser()
+system_config.read('system.yml')
+num_gpus = os.environ['num_gpus'] if 'num_gpus' in os.environ else system_config['DEFAULT'].getint('num_gpus', 1)
+num_trainers_per_gpu = os.environ['num_trainers_per_gpu'] if 'num_gpus' in os.environ else system_config[
+    'DEFAULT'].getint(
+    'num_trainers_per_gpu', 1)
+
+
 # from validator import YoloValidator
 
-@ray.remote(num_gpus=1.0)
+@ray.remote(num_gpus=1.0/num_trainers_per_gpu)
 class DistributedUltralyticsYoloTrainer:
     def __init__(self,
                  model_path: str,

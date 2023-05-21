@@ -33,8 +33,8 @@ def compute_client_data_distribution(datasets: List[Dataset], num_classes: int):
 
     for i in range(len(datasets)):
         class_counts = torch.zeros(num_classes)
-        for j in range(len(datasets[i])):
-            class_counts[datasets[i][j][1]] += 1
+        for j in range(len(datasets[i].targets)):
+            class_counts[datasets[i].targets[j]] += 1
         class_counts = class_counts.numpy()
         data_distribution.append(np.sum(class_counts))
         class_counts = class_counts / np.sum(class_counts)

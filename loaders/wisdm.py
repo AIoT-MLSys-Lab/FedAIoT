@@ -96,7 +96,7 @@ def filter_merge_interval(dfa: pandas.DataFrame, dfg: pandas.DataFrame, act_df: 
     return df
 
 
-def process_dataset(act_df: pandas.DataFrame, data_path: str):
+def process_dataset(act_df: pandas.DataFrame, data_path: str, modality='watch'):
     """
     Process the WISDM dataset by reading accelerometer and gyroscope data and merging them.
 
@@ -110,10 +110,10 @@ def process_dataset(act_df: pandas.DataFrame, data_path: str):
     dfs = []
     for i in tqdm(range(1600, 1651)):
         df_wa = define_cols(
-            pd.read_csv(f'{data_path}/raw/watch/accel/data_{i}_accel_watch.txt', header=None, sep=',|;',
+            pd.read_csv(f'{data_path}/raw/watch/accel/data_{i}_accel_{modality}.txt', header=None, sep=',|;',
                         engine='python'))
         df_wg = define_cols(
-            pd.read_csv(f'{data_path}/raw/watch/gyro/data_{i}_gyro_watch.txt', header=None, sep=',|;',
+            pd.read_csv(f'{data_path}/raw/watch/gyro/data_{i}_gyro_{modality}.txt', header=None, sep=',|;',
                         engine='python'),
             prefix='gyro')
         dfs.append(filter_merge_interval(df_wa, df_wg, act_df))
@@ -136,7 +136,7 @@ def normalize_data(df):
     return df
 
 
-def get_processed_dataframe(reprocess=False):
+def get_processed_dataframe(reprocess=False, modality='watch'):
     """
     Load or reprocess the processed WISDM dataset.
 
@@ -146,12 +146,12 @@ def get_processed_dataframe(reprocess=False):
     Returns:
         pandas.DataFrame: The processed DataFrame.
     """
-    if os.path.exists('datasets/wisdm/processed.csv') and not reprocess:
-        return pd.read_csv('datasets/wisdm/processed.csv', index_col=0)
+    if os.path.exists(f'datasets/wisdm/processed_{modality}.csv') and not reprocess:
+        return pd.read_csv(f'datasets/wisdm/processed_{modality}.csv', index_col=0)
     act_df = pd.read_csv('datasets/wisdm/activity_key_filtered.txt', index_col=0)
-    processed_df = process_dataset(act_df, "datasets/wisdm/wisdm-dataset")
+    processed_df = process_dataset(act_df, "datasets/wisdm/wisdm-dataset", modality=modality)
     processed_df = normalize_data(processed_df)
-    processed_df.to_csv('datasets/wisdm/processed.csv')
+    processed_df.to_csv(f'datasets/wisdm/processed_{modality}.csv')
     return processed_df
 
 
@@ -210,7 +210,7 @@ def split_dataset(data: dict, client_mapping_train: dict, client_mapping_test: d
     return WISDMDataset(train_data), WISDMDataset(test_data), {'train': mapping_train, 'test': mapping_test}
 
 
-def load_dataset(window=200, overlap=0.5, reprocess=True, split=0.8):
+def load_dataset(window=200, overlap=0.5, reprocess=True, split=0.8, modality='watch'):
     """
     Load the WISDM dataset, either from disk or by reprocessing it based on the specified parameters.
 
@@ -219,13 +219,14 @@ def load_dataset(window=200, overlap=0.5, reprocess=True, split=0.8):
         overlap (float, optional): The overlap ratio between windows. Defaults to 0.5.
         reprocess (bool, optional): Whether to reprocess the dataset. Defaults to True.
         split (float, optional): The ratio for the train/test split. Defaults to 0.8.
+        modality (str, optional): The modality to use. Defaults to 'watch'.
 
     Returns:
         dict: A dictionary containing the full dataset, train and test datasets, client mapping, and split.
     """
-    if os.path.exists('datasets/wisdm/wisdm.dt') and not reprocess:
-        return torch.load('datasets/wisdm/wisdm.dt')
-    processed_df = get_processed_dataframe(reprocess=reprocess)
+    if os.path.exists(f'datasets/wisdm/wisdm_{modality}.dt') and not reprocess:
+        return torch.load(f'datasets/wisdm/wisdm_{modality}.dt')
+    processed_df = get_processed_dataframe(reprocess=reprocess, modality=modality)
     if reprocess or not os.path.exists('datasets/wisdm/wisdm.dt'):
         clients = list(range(1600, 1651))
         data, idx = create_dataset(processed_df, clients=clients, window=window, overlap=overlap)

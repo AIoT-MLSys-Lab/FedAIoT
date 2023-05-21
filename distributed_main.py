@@ -3,6 +3,7 @@ import copy
 import os
 import warnings
 from datetime import datetime
+from pathlib import Path
 
 import fire
 import numpy as np
@@ -12,18 +13,18 @@ from ultralytics.nn.tasks import DetectionModel
 
 import loaders.casas
 import loaders.cifar10
+import loaders.ego4d
 import loaders.emognition
+import loaders.energy
+import loaders.epic_sounds
 import loaders.ut_har
 import loaders.visdrone
 import loaders.widar
 import loaders.wisdm
-import loaders.energy
-import loaders.epic_sounds
 import wandb
 from aggregators.base import FederatedAveraging
-from algorithms.base_fl import base_fl_algorithm
 from analyses.noise import inject_label_noise
-from loaders.utils import ParameterDict
+from loaders.utils import ParameterDict, compute_client_target_distribution
 from models.ut_har import *
 from models.utils import load_model
 from partition.centralized import CentralizedPartition
@@ -31,6 +32,7 @@ from partition.dirichlet import DirichletPartition
 from partition.uniform import UniformPartition
 from partition.user_index import UserPartition
 from partition.utils import compute_client_data_distribution, get_html_plots
+from strategies.base_fl import basic_fedavg
 from trainers.distributed_base import DistributedTrainer
 from trainers.ultralytics_distributed import DistributedUltralyticsYoloTrainer
 from utils import WarmupScheduler
@@ -39,9 +41,58 @@ os.environ['WANDB_START_METHOD'] = 'thread'
 
 config = configparser.ConfigParser()
 config.read('config.yml')
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-ray.init()
 
+system_config = configparser.ConfigParser()
+system_config.read('system.yml')
+num_gpus = os.environ['num_gpus'] if 'num_gpus' in os.environ else system_config['DEFAULT'].getint('num_gpus', 1)
+num_trainers_per_gpu = os.environ['num_trainers_per_gpu'] if 'num_gpus' in os.environ else system_config[
+    'DEFAULT'].getint(
+    'num_trainers_per_gpu', 1)
+
+
+
+YOLO_HYPERPARAMETERS = {
+    'lr0': 0.01,
+    'lrf': 0.01,
+    'momentum': 0.937,
+    'weight_decay': 0.0005,
+    'warmup_epochs': 3.0,
+    'warmup_momentum': 0.8,
+    'warmup_bias_lr': 0.1,
+    'box': 7.5,
+    'cls': 0.5,
+    'dfl': 1.5,
+    'fl_gamma': 0.0,
+    'label_smoothing': 0.0,
+    'nbs': 64,
+    'hsv_h': 0.015,
+    'hsv_s': 0.7,
+    'hsv_v': 0.4,
+    'degrees': 0.0,
+    'translate': 0.1,
+    'scale': 0.5,
+    'shear': 0.0,
+    'perspective': 0.0,
+    'flipud': 0.0,
+    'fliplr': 0.5,
+    'mosaic': 1.0,
+    'mixup': 0.0,
+    'copy_paste': 0.0,
+    'mask_ratio': 0.0,
+    'overlap_mask': 0.0,
+    'conf': 0.25,
+    'iou': 0.45,
+    'max_det': 1000,
+    'plots': False,
+    'half': False,  # use half precision (FP16)
+    'dnn': False,
+    'data': None,
+    'imgsz': 640,
+    'verbose': False
+}
+YOLO_HYPERPARAMETERS = ParameterDict(YOLO_HYPERPARAMETERS)
+
+ray.init()
 
 def set_seed(seed: int):
     """
@@ -88,6 +139,7 @@ class Experiment:
              analysis: str = config['DEFAULT'].get('analysis', 'baseline'),
              trainer: str = config['DEFAULT'].get('trainer', 'BaseTrainer'),
              class_mixup: float = config['DEFAULT'].getfloat('class_mixup', 1),
+             watch_metric: str = config['DEFAULT'].get('watch_metric', 'f1_score'),
              ):
         """
         :param model: neural network used in training
@@ -103,7 +155,7 @@ class Experiment:
         :param epochs: how many epochs will be trained locally
         :param fl_algorithm: Algorithm list: FedAvg; FedOPT; FedProx; FedAvgSeq
         :param comm_round: how many round of communications we should use
-        :param test_frequency: the frequency of the algorithms
+        :param test_frequency: the frequency of the strategies
         :param server_optimizer: server_optimizer
         :param server_lr: server_lr
         :param alpha: alpha in Dirichlet distribution
@@ -120,8 +172,11 @@ class Experiment:
         if dataset_name == 'cifar10':
             dataset = loaders.cifar10.load_dataset()
             num_classes = 10
-        elif dataset_name == 'wisdm':
-            dataset = loaders.wisdm.load_dataset(reprocess=True)
+        elif dataset_name == 'wisdm_watch':
+            dataset = loaders.wisdm.load_dataset(reprocess=True, modality='watch')
+            num_classes = 12
+        elif dataset_name == 'wisdm_phone':
+            dataset = loaders.wisdm.load_dataset(reprocess=True, modality='phone')
             num_classes = 12
         elif dataset_name == 'widar':
             dataset = loaders.widar.load_dataset()
@@ -144,6 +199,9 @@ class Experiment:
         elif dataset_name == 'epic_sounds':
             dataset = loaders.epic_sounds.load_dataset()
             num_classes = 44
+        elif dataset_name == 'ego4d':
+            dataset = loaders.ego4d.load_dataset()
+            num_classes = 1
         else:
             return
 
@@ -165,7 +223,7 @@ class Experiment:
             raise ValueError('partition type not supported')
         milestones = []
         run = wandb.init(
-            # mode='disabled',
+            mode='disabled',
             project=config['DEFAULT']['project'],
             entity=config['DEFAULT']['entity'],
             name=f'{fl_algorithm}_{dataset_name}_{partition_type}_{client_num_per_round}_{client_num_in_total}_{client_optimizer}_{lr}'
@@ -176,11 +234,17 @@ class Experiment:
 
         client_datasets = partition(dataset['train'])
         partition_name = partition_type if partition_type != 'dirichlet' else f'{partition_type}_{alpha}'
-        if dataset_name in ['wisdm', 'widar', 'ut_har', 'casas']:
+        if hasattr(dataset['train'], 'targets'):
             data_distribution, class_distribution = compute_client_data_distribution(datasets=client_datasets,
                                                                                      num_classes=num_classes)
             class_dist, sample_dist = get_html_plots(data_distribution, class_distribution)
             wandb.log({'class_dist': wandb.Html(class_dist, inject=False),
+                       'sample_dist': wandb.Html(sample_dist, inject=False)},
+                      step=0)
+        if dataset_name == 'visdrone':
+            targets = [[d['cls'] for d in dt] for dt in client_datasets]
+            data_distribution, class_distribution = compute_client_target_distribution(targets, num_classes=12)
+            wandb.log({'visdrone_class_dist': wandb.Html(class_dist, inject=False),
                        'sample_dist': wandb.Html(sample_dist, inject=False)},
                       step=0)
 
@@ -195,16 +259,16 @@ class Experiment:
                        }, step=0)
 
         data_ref = ray.put(dataset['train'])
-        # client_dataset_refs = [{'dataset': data_ref, 'indices': ray.put(client_dataset.indices)} for client_dataset in
-        #                        client_datasets]
         client_dataset_refs = [ray.put(client_dataset) for client_dataset in
                                client_datasets]
         global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
         if trainer == 'BaseTrainer':
             from scorers.classification_evaluator import evaluate
-            if dataset_name in {'emognition', 'energy'}:
+            if dataset_name in {'energy'}:
                 from scorers.regression_evaluator import evaluate
                 criterion = nn.MSELoss()
+            elif dataset_name in {'emognition', 'ego4d'}:
+                criterion = nn.BCEWithLogitsLoss()
             else:
                 criterion = nn.CrossEntropyLoss()
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
@@ -220,7 +284,7 @@ class Experiment:
                                                          class_mixup=class_mixup,
                                                          amp=amp,
                                                          **{'lr': lr, 'milestones': milestones, 'gamma': 0.1}) for _ \
-                               in range(client_num_per_round)]
+                               in range(min(client_num_per_round, num_gpus * num_trainers_per_gpu))]
         elif trainer == 'ultralytics':
             # pt = torch.load('yolov8n.pt.1')
             global_model = DetectionModel(cfg=model)
@@ -229,50 +293,7 @@ class Experiment:
                 torch.optim.SGD(global_model.parameters(), lr=lr), T_0=10, T_mult=2,
                 eta_min=1e-6)
             optimizer = torch.optim.SGD(global_model.parameters(), lr=lr)
-            # base_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-            #                                                  milestones=[30, 60, 90],
-            #                                                  gamma=0.1)
             scheduler = WarmupScheduler(optimizer, warmup_epochs=3, scheduler=base_scheduler)
-            YOLO_HYPERPARAMETERS = {
-                'lr0': 0.01,
-                'lrf': 0.01,
-                'momentum': 0.937,
-                'weight_decay': 0.0005,
-                'warmup_epochs': 3.0,
-                'warmup_momentum': 0.8,
-                'warmup_bias_lr': 0.1,
-                'box': 7.5,
-                'cls': 0.5,
-                'dfl': 1.5,
-                'fl_gamma': 0.0,
-                'label_smoothing': 0.0,
-                'nbs': 64,
-                'hsv_h': 0.015,
-                'hsv_s': 0.7,
-                'hsv_v': 0.4,
-                'degrees': 0.0,
-                'translate': 0.1,
-                'scale': 0.5,
-                'shear': 0.0,
-                'perspective': 0.0,
-                'flipud': 0.0,
-                'fliplr': 0.5,
-                'mosaic': 1.0,
-                'mixup': 0.0,
-                'copy_paste': 0.0,
-                'mask_ratio': 0.0,
-                'overlap_mask': 0.0,
-                'conf': 0.25,
-                'iou': 0.45,
-                'max_det': 1000,
-                'plots': False,
-                'half': False,  # use half precision (FP16)
-                'dnn': False,
-                'data': None,
-                'imgsz': 640,
-                'verbose': False
-            }
-            YOLO_HYPERPARAMETERS = ParameterDict(YOLO_HYPERPARAMETERS)
             global_model.args = YOLO_HYPERPARAMETERS
             from scorers.ultralytics_yolo_evaluator import evaluate
             client_trainers = [DistributedUltralyticsYoloTrainer.remote(
@@ -293,24 +314,35 @@ class Experiment:
                                         server_momentum=0.9,
                                         eps=1e-3)
 
+        best_metric = -np.inf
+        best_model = None
+
         for round_idx in tqdm(range(0, comm_round)):
-            local_metrics_avg, global_model, scheduler = base_fl_algorithm(aggregator,
-                                                                           client_trainers,
-                                                                           client_dataset_refs,
-                                                                           client_num_per_round,
-                                                                           global_model,
-                                                                           round_idx,
-                                                                           scheduler,
-                                                                           device, )
-            print(local_metrics_avg)
-            wandb.log(local_metrics_avg, step=round_idx)
             if round_idx % test_frequency == 0:
                 metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes)
                 for k, v in metrics.items():
                     if type(v) == torch.Tensor:
                         v = v.item()
+                    if k == watch_metric and v > best_metric:
+                        best_metric = v
+                        best_model = copy.deepcopy(global_model)
+                        path = f'weights/{wandb.run.name}'
+                        Path(path).mkdir(parents=True, exist_ok=True)
+                        torch.save(best_model.state_dict(), f'{path}/best_model.pt')
                     wandb.log({k: v}, step=round_idx)
+
                     print(f'metric round_idx = {k}: {v}')
+
+            local_metrics_avg, global_model, scheduler = basic_fedavg(aggregator,
+                                                                      client_trainers,
+                                                                      client_dataset_refs,
+                                                                      client_num_per_round,
+                                                                      global_model,
+                                                                      round_idx,
+                                                                      scheduler,
+                                                                      device, )
+            print(local_metrics_avg)
+            wandb.log(local_metrics_avg, step=round_idx)
 
 
 if __name__ == '__main__':

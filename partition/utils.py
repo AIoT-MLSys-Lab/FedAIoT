@@ -13,6 +13,7 @@ class IndexedSubset(Dataset):
     def __init__(self, dataset, indices):
         self.indices = indices
         self.dataset = dataset
+        self.targets = [dataset.targets[i] for i in indices]
 
     def __getitem__(self, index):
         try:
