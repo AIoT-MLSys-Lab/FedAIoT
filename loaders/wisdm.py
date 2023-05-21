@@ -227,7 +227,7 @@ def load_dataset(window=200, overlap=0.5, reprocess=True, split=0.8, modality='w
     if os.path.exists(f'datasets/wisdm/wisdm_{modality}.dt') and not reprocess:
         return torch.load(f'datasets/wisdm/wisdm_{modality}.dt')
     processed_df = get_processed_dataframe(reprocess=reprocess, modality=modality)
-    if reprocess or not os.path.exists('datasets/wisdm/wisdm.dt'):
+    if reprocess or not os.path.exists(f'datasets/wisdm/wisdm_{modality}.dt'):
         clients = list(range(1600, 1651))
         data, idx = create_dataset(processed_df, clients=clients, window=window, overlap=overlap)
         dataset = WISDMDataset(data)
@@ -240,8 +240,8 @@ def load_dataset(window=200, overlap=0.5, reprocess=True, split=0.8, modality='w
             'test': test_dataset,
             'client_mapping': idx,
             'split': split
-        }, 'datasets/wisdm/wisdm.dt')
-    data = torch.load('datasets/wisdm/wisdm.dt')
+        }, f'datasets/wisdm/wisdm_{modality}.dt')
+    data = torch.load(f'datasets/wisdm/wisdm_{modality}.dt')
     return data
 
 
