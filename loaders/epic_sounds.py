@@ -16,10 +16,6 @@ from loaders.spec_augment import combined_transforms
 from loaders.utils import pack_pathway_output
 
 
-os.environ['TORCH_USE_CUDA_DSA'] = 'true'
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-
-
 def mixup_data(x, y, alpha=1.0):
     '''Returns mixed inputs, pairs of targets, and lambda'''
     lam = np.random.beta(alpha, alpha) if alpha > 0 else 1
@@ -207,7 +203,6 @@ def load_dataset():
         'train': Epicsounds('train'),
         'test': Epicsounds('test'),
     }
-
 
 # if __name__ == '__main__':
 #     model = ResNet(block=BasicBlock, layers=[2, 2, 2, 2], num_classes=44).cuda()

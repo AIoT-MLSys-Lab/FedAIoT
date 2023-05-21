@@ -110,10 +110,10 @@ def process_dataset(act_df: pandas.DataFrame, data_path: str, modality='watch'):
     dfs = []
     for i in tqdm(range(1600, 1651)):
         df_wa = define_cols(
-            pd.read_csv(f'{data_path}/raw/watch/accel/data_{i}_accel_{modality}.txt', header=None, sep=',|;',
+            pd.read_csv(f'{data_path}/raw/{modality}/accel/data_{i}_accel_{modality}.txt', header=None, sep=',|;',
                         engine='python'))
         df_wg = define_cols(
-            pd.read_csv(f'{data_path}/raw/watch/gyro/data_{i}_gyro_{modality}.txt', header=None, sep=',|;',
+            pd.read_csv(f'{data_path}/raw/{modality}/gyro/data_{i}_gyro_{modality}.txt', header=None, sep=',|;',
                         engine='python'),
             prefix='gyro')
         dfs.append(filter_merge_interval(df_wa, df_wg, act_df))

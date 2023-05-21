@@ -6,7 +6,8 @@ from ultralytics.nn.tasks import DetectionModel
 from models import widar, wisdm, ut_har, emognition, casas, energy, ego4d, epic_sounds
 
 MODULE_MAP = {
-    'wisdm': wisdm,
+    'wisdm_phone': wisdm,
+    'wisdm_watch': wisdm,
     'widar': widar,
     'ut_har': ut_har,
     'emognition': emognition,

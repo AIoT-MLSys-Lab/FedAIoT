@@ -1,5 +1,6 @@
 import numpy as np
 import ray
+import torch.cuda
 from tqdm import tqdm
 
 
@@ -20,7 +21,7 @@ def basic_fedavg(aggregator, client_trainers, client_dataset_refs, client_num_pe
         for j, client_trainer in enumerate(client_trainers):
             idx = i + j
             if idx >= len(sampled_clients_idx):
-                continue
+                break
 
             # Update the remote client_trainer with the latest global model and scheduler state
             client_trainer.update.remote(global_model.state_dict(), scheduler.state_dict())
@@ -33,12 +34,14 @@ def basic_fedavg(aggregator, client_trainers, client_dataset_refs, client_num_pe
             remote_steps.append(remote_step)
 
         # Retrieve remote steps results
+        print(f"length of steps: {len(remote_steps)}")
         updates, weights, local_metrics = zip(*ray.get(remote_steps))
 
         # Add the results to the overall lists
         all_updates.extend(updates)
         all_weights.extend(weights)
         all_local_metrics.extend(local_metrics)
+        # torch.cuda.empty_cache()
 
     # Calculate the average local metrics
     local_metrics_avg = {key: sum(metric[key] for metric in all_local_metrics if metric[key]) / len(all_local_metrics)

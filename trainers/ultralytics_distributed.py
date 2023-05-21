@@ -24,8 +24,8 @@ from utils import WarmupScheduler
 
 system_config = configparser.ConfigParser()
 system_config.read('system.yml')
-num_gpus = os.environ['num_gpus'] if 'num_gpus' in os.environ else system_config['DEFAULT'].getint('num_gpus', 1)
-num_trainers_per_gpu = os.environ['num_trainers_per_gpu'] if 'num_gpus' in os.environ else system_config[
+num_gpus = int(os.environ['num_gpus']) if 'num_gpus' in os.environ else system_config['DEFAULT'].getint('num_gpus', 1)
+num_trainers_per_gpu = int(os.environ['num_trainers_per_gpu']) if 'num_gpus' in os.environ else system_config[
     'DEFAULT'].getint(
     'num_trainers_per_gpu', 1)
 

@@ -44,8 +44,8 @@ config.read('config.yml')
 
 system_config = configparser.ConfigParser()
 system_config.read('system.yml')
-num_gpus = os.environ['num_gpus'] if 'num_gpus' in os.environ else system_config['DEFAULT'].getint('num_gpus', 1)
-num_trainers_per_gpu = os.environ['num_trainers_per_gpu'] if 'num_gpus' in os.environ else system_config[
+num_gpus = int(os.environ['num_gpus']) if 'num_gpus' in os.environ else system_config['DEFAULT'].getint('num_gpus', 1)
+num_trainers_per_gpu = int(os.environ['num_trainers_per_gpu']) if 'num_gpus' in os.environ else system_config[
     'DEFAULT'].getint(
     'num_trainers_per_gpu', 1)
 
@@ -92,7 +92,7 @@ YOLO_HYPERPARAMETERS = {
 }
 YOLO_HYPERPARAMETERS = ParameterDict(YOLO_HYPERPARAMETERS)
 
-ray.init()
+ray.init(num_gpus=num_gpus)
 
 def set_seed(seed: int):
     """
@@ -122,7 +122,6 @@ class Experiment:
              data_dir: str = config['DEFAULT'].get('data_dir', '../data/'),
              client_num_in_total: int = config['DEFAULT'].getint('client_num_in_total', 2118),
              client_num_per_round: int = config['DEFAULT'].getint('client_num_per_round', 10),
-             gpu_worker_num: int = config['DEFAULT'].getint('gpu_worker_num', 8),
              batch_size: int = config['DEFAULT'].getint('batch_size', 16),
              client_optimizer: str = config['DEFAULT'].get('client_optimizer', 'sgd'),
              lr: float = config['DEFAULT'].getfloat('lr', 0.1e-2),
@@ -147,7 +146,6 @@ class Experiment:
         :param data_dir: data directory
         :param client_num_in_total: number of workers in a distributed cluster
         :param client_num_per_round: number of workers
-        :param gpu_worker_num: total GPU number
         :param batch_size: input batch size for training
         :param client_optimizer: SGD with momentum; adam
         :param lr: learning rate
@@ -162,8 +160,11 @@ class Experiment:
         :param partition_type: partition type: user, dirichlet, central
         :param trainer: trainer to be used
         :param amp: flag for using mixed precision
+        :param watch_metric:
+        :param class_mixup:
+        :param analysis:
         """
-
+        print('Starting...')
         args = copy.deepcopy(locals())
         args.pop('self')
 
@@ -173,10 +174,10 @@ class Experiment:
             dataset = loaders.cifar10.load_dataset()
             num_classes = 10
         elif dataset_name == 'wisdm_watch':
-            dataset = loaders.wisdm.load_dataset(reprocess=True, modality='watch')
+            dataset = loaders.wisdm.load_dataset(reprocess=False, modality='watch')
             num_classes = 12
         elif dataset_name == 'wisdm_phone':
-            dataset = loaders.wisdm.load_dataset(reprocess=True, modality='phone')
+            dataset = loaders.wisdm.load_dataset(reprocess=False, modality='phone')
             num_classes = 12
         elif dataset_name == 'widar':
             dataset = loaders.widar.load_dataset()
@@ -203,7 +204,7 @@ class Experiment:
             dataset = loaders.ego4d.load_dataset()
             num_classes = 1
         else:
-            return
+            raise ValueError(f'Dataset {dataset_name} type not supported')
 
         if partition_type == 'user' and dataset_name in {'wisdm', 'widar', 'visdrone'}:
             partition = UserPartition(dataset['split']['train'])
@@ -220,10 +221,10 @@ class Experiment:
             client_num_per_round = 1
             client_num_in_total = 1
         else:
-            raise ValueError('partition type not supported')
+            raise ValueError(f'Partition {partition_type} type not supported')
         milestones = []
         run = wandb.init(
-            mode='disabled',
+            # mode='disabled',
             project=config['DEFAULT']['project'],
             entity=config['DEFAULT']['entity'],
             name=f'{fl_algorithm}_{dataset_name}_{partition_type}_{client_num_per_round}_{client_num_in_total}_{client_optimizer}_{lr}'
@@ -322,7 +323,7 @@ class Experiment:
                 metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes)
                 for k, v in metrics.items():
                     if type(v) == torch.Tensor:
-                        v = v.item()
+                        v = v.numpy()
                     if k == watch_metric and v > best_metric:
                         best_metric = v
                         best_model = copy.deepcopy(global_model)

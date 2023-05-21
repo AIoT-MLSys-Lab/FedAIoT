@@ -18,7 +18,6 @@ transformations = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 model = models.resnet50(pretrained=True)
 
 

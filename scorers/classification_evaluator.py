@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torchmetrics import Accuracy, F1Score
+from torchmetrics import Accuracy, F1Score, ConfusionMatrix
 from tqdm import tqdm
 
 from scorers.utils import LossMetric
