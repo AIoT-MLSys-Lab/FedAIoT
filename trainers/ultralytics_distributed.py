@@ -77,8 +77,8 @@ class DistributedUltralyticsYoloTrainer:
         return self.model.cpu().state_dict()
 
     def step(self, client_idx, client_data, round_idx, device='cuda'):
-        client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
-                                    indices=ray.get(client_data['indices']))
+        # client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
+        #                             indices=ray.get(client_data['indices']))
         # wandb.log({'lr': self.scheduler.get_last_lr()[0]}, step=round_idx)
         losses = None
         for epoch in range(self.epochs):

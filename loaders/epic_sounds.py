@@ -110,7 +110,7 @@ class Epicsounds(torch.utils.data.Dataset):
         """
         Construct the video loader.
         """
-        ANNOTATIONS_DIR = "datasets/epic_kitchens/epic-sounds-annotations-main"
+        ANNOTATIONS_DIR = "datasets/epic_sounds/epic-sounds-annotations-main"
         if self.mode == "train":
             path_annotations_pickle = [
                 os.path.join(ANNOTATIONS_DIR, "EPIC_Sounds_train.pkl")]
@@ -162,7 +162,7 @@ class Epicsounds(torch.utils.data.Dataset):
                 index of the video replacement that can be decoded.
         """
         if self.audio_dataset is None:
-            self.audio_dataset = h5py.File("datasets/epic_kitchens/EPIC_audio.hdf5", 'r')
+            self.audio_dataset = h5py.File("datasets/epic_sounds/EPIC_audio.hdf5", 'r')
 
         if self.mode in ["train", "val", "train+val"]:
             # -1 indicates random sampling.
