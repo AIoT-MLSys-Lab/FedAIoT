@@ -22,5 +22,5 @@ trainer = BaseTrainer
 amp = True
 analysis= baseline
 class_mixup=1.0
-entity=samiul
+entity=fedaiot
 project=ray_fl_dev_v3
