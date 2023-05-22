@@ -6,6 +6,33 @@ import numpy as np
 
 import torch
 
+import wandb
+import pandas as pd
+import altair as alt
+
+
+def get_confusion_matrix_plot(cm):
+    labels = list(range(cm.shape[0]))
+    # Normalize the confusion matrix
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+    # Create a DataFrame for the confusion matrix
+    df_cm = pd.DataFrame(cm_normalized, index=labels, columns=labels)
+    df_cm = df_cm.stack().reset_index()
+    df_cm.columns = ['True Label', 'Predicted Label', 'Normalized Count']
+
+    # Plot the confusion matrix using Altair
+    chart = alt.Chart(df_cm).mark_rect().encode(
+        x='Predicted Label:O',
+        y='True Label:O',
+        color=alt.Color('Normalized Count:Q', scale=alt.Scale(scheme='blues')),
+        tooltip=['True Label', 'Predicted Label', 'Normalized Count']
+    ).properties(
+        title='Confusion Matrix',
+    )
+    chart.save('logs/confusion_matrix.html')
+    return 'logs/confusion_matrix.html'
+
 
 def compute_client_target_distribution(targets: List[List[List[int]]], num_classes: int):
     class_distribution = []
@@ -24,6 +51,7 @@ def compute_client_target_distribution(targets: List[List[List[int]]], num_class
         class_counts = class_counts
         class_distribution.append(class_counts)
     return data_distribution, class_distribution
+
 
 class ParameterDict:
     def __init__(self, parameter_dict):
@@ -53,7 +81,6 @@ def pack_pathway_output(frames):
     )
     frame_list = [slow_pathway, fast_pathway]
     return frame_list
-
 
 
 def simple_frame_to_time(frame: int, fps: Fraction, start_pts: int) -> Fraction:

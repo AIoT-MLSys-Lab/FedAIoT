@@ -7,6 +7,7 @@ from pathlib import Path
 
 import fire
 import numpy as np
+import pandas as pd
 import ray
 from tqdm import tqdm
 from ultralytics.nn.tasks import DetectionModel
@@ -24,7 +25,7 @@ import loaders.wisdm
 import wandb
 from aggregators.base import FederatedAveraging
 from analyses.noise import inject_label_noise
-from loaders.utils import ParameterDict, compute_client_target_distribution
+from loaders.utils import ParameterDict, compute_client_target_distribution, get_confusion_matrix_plot
 from models.ut_har import *
 from models.utils import load_model
 from partition.centralized import CentralizedPartition
@@ -48,8 +49,6 @@ num_gpus = int(os.environ['num_gpus']) if 'num_gpus' in os.environ else system_c
 num_trainers_per_gpu = int(os.environ['num_trainers_per_gpu']) if 'num_gpus' in os.environ else system_config[
     'DEFAULT'].getint(
     'num_trainers_per_gpu', 1)
-
-
 
 YOLO_HYPERPARAMETERS = {
     'lr0': 0.01,
@@ -93,6 +92,7 @@ YOLO_HYPERPARAMETERS = {
 YOLO_HYPERPARAMETERS = ParameterDict(YOLO_HYPERPARAMETERS)
 
 ray.init(num_gpus=num_gpus)
+
 
 def set_seed(seed: int):
     """
@@ -232,7 +232,7 @@ class Experiment:
                  f'{server_lr}_{alpha}_{datetime.now().strftime("%Y%m%d_%H%M%S")}',
             config=args,
         )
-
+        wandb.config['num_samples'] = len(dataset['train'])
         client_datasets = partition(dataset['train'])
         partition_name = partition_type if partition_type != 'dirichlet' else f'{partition_type}_{alpha}'
         if hasattr(dataset['train'], 'targets'):
@@ -242,14 +242,15 @@ class Experiment:
             wandb.log({'class_dist': wandb.Html(class_dist, inject=False),
                        'sample_dist': wandb.Html(sample_dist, inject=False)},
                       step=0)
-        if dataset_name == 'visdrone':
-            targets = [[d['cls'] for d in dt] for dt in client_datasets]
-            data_distribution, class_distribution = compute_client_target_distribution(targets, num_classes=12)
-            wandb.log({'visdrone_class_dist': wandb.Html(class_dist, inject=False),
-                       'sample_dist': wandb.Html(sample_dist, inject=False)},
-                      step=0)
+        # if dataset_name == 'visdrone':
+        #     targets = [[d['cls'] for d in dt] for dt in client_datasets]
+        #     data_distribution, class_distribution = compute_client_target_distribution(targets, num_classes=12)
+        #     wandb.log({'visdrone_class_dist': wandb.Html(class_dist, inject=False),
+        #                'sample_dist': wandb.Html(sample_dist, inject=False)},
+        #               step=0)
 
-        if 'label_noise' in analysis and dataset_name in ['wisdm', 'widar', 'ut_har', 'casas']:
+        if 'label_noise' in analysis and dataset_name in ['wisdm_phone', 'wisdm_watch', 'widar', 'ut_har', 'casas',
+                                                          'epic_sounds', 'emognition']:
             _, error_rate, error_var = analysis.split('-')
             error_rate = float(error_rate)
             error_var = float(error_var)
@@ -321,30 +322,53 @@ class Experiment:
         for round_idx in tqdm(range(0, comm_round)):
             if round_idx % test_frequency == 0:
                 metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes)
-                for k, v in metrics.items():
-                    if type(v) == torch.Tensor:
-                        v = v.numpy()
-                    if k == watch_metric and v > best_metric:
-                        best_metric = v
-                        best_model = copy.deepcopy(global_model)
-                        path = f'weights/{wandb.run.name}'
-                        Path(path).mkdir(parents=True, exist_ok=True)
-                        torch.save(best_model.state_dict(), f'{path}/best_model.pt')
-                    wandb.log({k: v}, step=round_idx)
+                v = metrics.get(watch_metric)
+                if isinstance(v, torch.Tensor):
+                    v = v.numpy()
+                confusion_metric = None
+                if 'confusion' in metrics:
+                    confusion_metric = metrics['confusion'].numpy()
+                    del metrics['confusion']
+                if v is not None and v > best_metric:
+                    best_metric = v
+                    best_model = copy.deepcopy(global_model)
+                    path = f'weights/{wandb.run.name}'
+                    Path(path).mkdir(parents=True, exist_ok=True)
+                    torch.save(best_model.state_dict(), f'{path}/best_model.pt')
+                    if confusion_metric is not None:
+                        chart = get_confusion_matrix_plot(confusion_metric)
+                        wandb.log({'confusion_matrix': wandb.Html(chart)}, step=round_idx)
+                        np.save(f'{path}/confusion_matrix.npy', confusion_metric)
+                        wandb.log(
+                            {'confusion_matrix_chart':
+                                 wandb.Table(dataframe=pd.DataFrame(confusion_metric,
+                                                                    columns=list(range(confusion_metric.shape[0]))))},
+                            step=round_idx)
 
-                    print(f'metric round_idx = {k}: {v}')
+                    wandb.log(metrics, step=round_idx)
+                    print(f'metric round_idx = {watch_metric}: {v}')
 
-            local_metrics_avg, global_model, scheduler = basic_fedavg(aggregator,
-                                                                      client_trainers,
-                                                                      client_dataset_refs,
-                                                                      client_num_per_round,
-                                                                      global_model,
-                                                                      round_idx,
-                                                                      scheduler,
-                                                                      device, )
-            print(local_metrics_avg)
-            wandb.log(local_metrics_avg, step=round_idx)
+                local_metrics_avg, global_model, scheduler = basic_fedavg(aggregator,
+                                                                          client_trainers,
+                                                                          client_dataset_refs,
+                                                                          client_num_per_round,
+                                                                          global_model,
+                                                                          round_idx,
+                                                                          scheduler,
+                                                                          device, )
+                # print(local_metrics_avg)
 
+                # log_wandb(local_metrics_avg, step=round_idx)
+
+    # def log_wandb(local_metrics_avg, step):
+    #     for k, v in local_metrics_avg.items():
+    #         if type(v) == torch.Tensor:
+    #             v = v.numpy()
+    #             table = wandb.Table(data=[[d] for d in v], columns=list(range(len(v))))
+    #             wandb.log({k: wandb.plot_table(data_table=table, title=f'confusion matrix')},
+    #                       step=step)
+    #             continue
+    #         wandb.log({k: v}, step=step)
 
 if __name__ == '__main__':
     fire.Fire(Experiment)
