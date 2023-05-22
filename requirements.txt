@@ -19,3 +19,7 @@ scikit-learn
 scipy~=1.10.0
 av
 h5py
+chardet
+librosa
+llvmlite
+numba
