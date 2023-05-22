@@ -23,4 +23,4 @@ amp = True
 analysis= baseline
 class_mixup=1.0
 entity=samiul
-project=ray_fl_dev_v2
+project=ray_fl_dev_v3
