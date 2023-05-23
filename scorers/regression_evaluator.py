@@ -1,25 +1,25 @@
 import torch
 from sklearn.metrics import r2_score
 from torch import nn
-from torchmetrics import MeanAbsoluteError
+from torchmetrics import MeanAbsoluteError, R2Score
 from torchmetrics import Metric
 from tqdm import tqdm
 
 from scorers.utils import LossMetric
 
 
-class R2Score(Metric):
-    def __init__(self, dist_sync_on_step=False):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.preds = []
-        self.targets = []
-
-    def update(self, preds: torch.Tensor, target: torch.Tensor):
-        self.preds += preds.reshape((-1,)).cpu().tolist()
-        self.targets += target.reshape((-1,)).cpu().tolist()
-
-    def compute(self):
-        return torch.tensor(r2_score(self.preds, self.targets))
+# class R2Score(Metric):
+#     def __init__(self, dist_sync_on_step=False):
+#         super().__init__(dist_sync_on_step=dist_sync_on_step)
+#         self.preds = []
+#         self.targets = []
+#
+#     def update(self, preds: torch.Tensor, target: torch.Tensor):
+#         self.preds += preds.reshape((-1,)).cpu().tolist()
+#         self.targets += target.reshape((-1,)).cpu().tolist()
+#
+#     def compute(self):
+#         return torch.tensor(r2_score(self.preds, self.targets))
 
 
 def evaluate(model, test_data, device, num_classes=1, batch_size=32):
