@@ -24,5 +24,5 @@ class MLP(nn.Module):
         out = self.dropout(out)
         out = self.relu(self.layer5(out))
         out = self.dropout(out)
-        out = self.output_layer(out)
+        out = self.relu(self.output_layer(out))
         return out
