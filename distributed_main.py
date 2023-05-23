@@ -268,7 +268,7 @@ class Experiment:
             from scorers.classification_evaluator import evaluate
             if dataset_name in {'energy'}:
                 from scorers.regression_evaluator import evaluate
-                criterion = nn.MSELoss()
+                criterion = nn.L1Loss()
             elif dataset_name in {'ego4d'}:
                 criterion = nn.BCEWithLogitsLoss()
             else:
