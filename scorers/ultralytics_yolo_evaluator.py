@@ -418,12 +418,12 @@ class YoloValidator:
 #     return
 
 
-def evaluate(model, test_data, device, num_classes=12):
+def evaluate(model, test_data, device, num_classes=12, batch_size=8):
     model.to(device)
     test_dataloader = torch.utils.data.DataLoader(
         dataset=test_data,
         shuffle=False,
-        batch_size=8,
+        batch_size=batch_size,
         pin_memory=True,
         num_workers=1,
         drop_last=True,
