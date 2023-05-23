@@ -268,11 +268,14 @@ class Experiment:
             from scorers.classification_evaluator import evaluate
             if dataset_name in {'energy'}:
                 from scorers.regression_evaluator import evaluate
-                criterion = nn.L1Loss()
+                criterion = nn.MSELoss(reduction='mean')
+                wandb.config['loss'] = 'MSE'
             elif dataset_name in {'ego4d'}:
                 criterion = nn.BCEWithLogitsLoss()
+                wandb.config['loss'] = 'BCEWithLogitsLoss'
             else:
                 criterion = nn.CrossEntropyLoss()
+                wandb.config['loss'] = 'CrossEntropyLoss'
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
                                                              milestones=milestones,
                                                              gamma=0.1)
