@@ -19,7 +19,7 @@ class R2Score(Metric):
         self.targets += target.reshape((-1,)).cpu().tolist()
 
     def compute(self):
-        return torch.tensor(r2_score(self.targets, self.preds))
+        return torch.tensor(r2_score(self.preds, self.targets))
 
 
 def evaluate(model, test_data, device, num_classes=1, batch_size=32):
