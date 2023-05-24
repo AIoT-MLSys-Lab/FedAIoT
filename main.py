@@ -8,7 +8,6 @@ from pathlib import Path
 import fire
 import numpy as np
 import pandas as pd
-import ray
 from tqdm import tqdm
 from ultralytics.nn.tasks import DetectionModel
 
@@ -25,7 +24,7 @@ import loaders.wisdm
 import wandb
 from aggregators.base import FederatedAveraging
 from analyses.noise import inject_label_noise
-from loaders.utils import ParameterDict, compute_client_target_distribution, get_confusion_matrix_plot
+from loaders.utils import ParameterDict, get_confusion_matrix_plot
 from models.ut_har import *
 from models.utils import load_model
 from partition.centralized import CentralizedPartition
@@ -33,9 +32,9 @@ from partition.dirichlet import DirichletPartition
 from partition.uniform import UniformPartition
 from partition.user_index import UserPartition
 from partition.utils import compute_client_data_distribution, get_html_plots
-from strategies.base_fl import distributed_fedavg
-from trainers.distributed_base import DistributedTrainer
-from trainers.ultralytics_distributed import DistributedUltralyticsYoloTrainer
+from strategies.base_fl import basic_fedavg
+from trainers.base import BaseTrainer
+from trainers.ultralytics import UltralyticsYoloTrainer
 from utils import WarmupScheduler
 
 os.environ['WANDB_START_METHOD'] = 'thread'
@@ -90,8 +89,6 @@ YOLO_HYPERPARAMETERS = {
     'verbose': False
 }
 YOLO_HYPERPARAMETERS = ParameterDict(YOLO_HYPERPARAMETERS)
-
-ray.init(num_gpus=num_gpus)
 
 
 def set_seed(seed: int):
@@ -260,8 +257,8 @@ class Experiment:
                                                                  title="Label Noise Distribution")
                        }, step=0)
 
-        data_ref = ray.put(dataset['train'])
-        client_dataset_refs = [ray.put(client_dataset) for client_dataset in
+        data_ref = dataset['train']
+        client_dataset_refs = [client_dataset for client_dataset in
                                client_datasets]
         global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
         if trainer == 'BaseTrainer':
@@ -279,16 +276,16 @@ class Experiment:
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
                                                              milestones=milestones,
                                                              gamma=0.1)
-            client_trainers = [DistributedTrainer.remote(model_name=model,
-                                                         dataset_name=dataset_name,
-                                                         state_dict=global_model.state_dict(),
-                                                         criterion=criterion,
-                                                         batch_size=batch_size,
-                                                         optimizer_name=client_optimizer,
-                                                         epochs=epochs, scheduler='multisteplr',
-                                                         class_mixup=class_mixup,
-                                                         amp=amp,
-                                                         **{'lr': lr, 'milestones': milestones, 'gamma': 0.1}) for _ \
+            client_trainers = [BaseTrainer(model_name=model,
+                                           dataset_name=dataset_name,
+                                           state_dict=global_model.state_dict(),
+                                           criterion=criterion,
+                                           batch_size=batch_size,
+                                           optimizer_name=client_optimizer,
+                                           epochs=epochs, scheduler='multisteplr',
+                                           class_mixup=class_mixup,
+                                           amp=amp,
+                                           **{'lr': lr, 'milestones': milestones, 'gamma': 0.1}) for _ \
                                in range(min(client_num_per_round, num_gpus * num_trainers_per_gpu))]
         elif trainer == 'ultralytics':
             # pt = torch.load('yolov8n.pt.1')
@@ -301,7 +298,7 @@ class Experiment:
             scheduler = WarmupScheduler(optimizer, warmup_epochs=3, scheduler=base_scheduler)
             global_model.args = YOLO_HYPERPARAMETERS
             from scorers.ultralytics_yolo_evaluator import evaluate
-            client_trainers = [DistributedUltralyticsYoloTrainer.remote(
+            client_trainers = [UltralyticsYoloTrainer(
                 model_path=model,
                 state_dict=global_model.state_dict(),
                 optimizer_name=client_optimizer,
@@ -324,7 +321,8 @@ class Experiment:
 
         for round_idx in tqdm(range(0, comm_round)):
             if round_idx % test_frequency == 0:
-                metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes, batch_size=batch_size)
+                metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes,
+                                   batch_size=batch_size)
                 v = metrics.get(watch_metric)
                 if isinstance(v, torch.Tensor):
                     v = v.numpy()
@@ -351,27 +349,18 @@ class Experiment:
                     wandb.log(metrics, step=round_idx)
                     print(f'metric round_idx = {watch_metric}: {v}')
 
-            local_metrics_avg, global_model, scheduler = distributed_fedavg(aggregator,
-                                                                            client_trainers,
-                                                                            client_dataset_refs,
-                                                                            client_num_per_round,
-                                                                            global_model,
-                                                                            round_idx,
-                                                                            scheduler,
-                                                                            device, )
+            local_metrics_avg, global_model, scheduler = basic_fedavg(aggregator,
+                                                                      client_trainers,
+                                                                      client_dataset_refs,
+                                                                      client_num_per_round,
+                                                                      global_model,
+                                                                      round_idx,
+                                                                      scheduler,
+                                                                      device, )
                 # print(local_metrics_avg)
 
                 # log_wandb(local_metrics_avg, step=round_idx)
 
-    # def log_wandb(local_metrics_avg, step):
-    #     for k, v in local_metrics_avg.items():
-    #         if type(v) == torch.Tensor:
-    #             v = v.numpy()
-    #             table = wandb.Table(data=[[d] for d in v], columns=list(range(len(v))))
-    #             wandb.log({k: wandb.plot_table(data_table=table, title=f'confusion matrix')},
-    #                       step=step)
-    #             continue
-    #         wandb.log({k: v}, step=step)
 
 if __name__ == '__main__':
     fire.Fire(Experiment)
