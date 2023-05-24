@@ -268,7 +268,7 @@ class Experiment:
             from scorers.classification_evaluator import evaluate
             if dataset_name in {'energy'}:
                 from scorers.regression_evaluator import evaluate
-                criterion = nn.MSELoss(reduction='mean')
+                criterion = nn.MSELoss()
                 wandb.config['loss'] = 'MSE'
             elif dataset_name in {'ego4d'}:
                 criterion = nn.BCEWithLogitsLoss()
@@ -348,8 +348,8 @@ class Experiment:
                                                                     columns=list(range(confusion_metric.shape[0]))))},
                             step=round_idx)
 
-                    wandb.log(metrics, step=round_idx)
-                    print(f'metric round_idx = {watch_metric}: {v}')
+                wandb.log(metrics, step=round_idx)
+                print(f'metric round_idx = {watch_metric}: {v}')
 
             local_metrics_avg, global_model, scheduler = distributed_fedavg(aggregator,
                                                                             client_trainers,
@@ -359,9 +359,8 @@ class Experiment:
                                                                             round_idx,
                                                                             scheduler,
                                                                             device, )
-                # print(local_metrics_avg)
-
-                # log_wandb(local_metrics_avg, step=round_idx)
+            print(local_metrics_avg)
+            wandb.log(local_metrics_avg, step=round_idx)
 
     # def log_wandb(local_metrics_avg, step):
     #     for k, v in local_metrics_avg.items():

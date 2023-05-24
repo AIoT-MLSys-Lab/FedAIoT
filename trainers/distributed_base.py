@@ -166,21 +166,10 @@ class DistributedTrainer:
                 optimizer.zero_grad()
 
                 with autocast(device_type=device, ):  # Enable mixed precision training
-                    if self.mixup != 1:
-                        data, labels_a, labels_b, lam = mixup_data(data, labels, alpha=self.mixup)
                     output = self.model(data)
                     if self.dataset_name == 'energy':
                         output = output.reshape((-1,))
-                    if self.mixup != 1:
-                        loss = mixup_criterion(
-                            criterion,
-                            output,
-                            labels_a,
-                            labels_b,
-                            lam
-                        )
-                    else:
-                        loss = criterion(output, labels)
+                    loss = criterion(output, labels)
 
                 # Replace loss.backward() with the following lines to scale the loss and update the gradients
                 self.scaler.scale(loss).backward()

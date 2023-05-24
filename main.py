@@ -345,9 +345,9 @@ class Experiment:
                                  wandb.Table(dataframe=pd.DataFrame(confusion_metric,
                                                                     columns=list(range(confusion_metric.shape[0]))))},
                             step=round_idx)
-
-                    wandb.log(metrics, step=round_idx)
                     print(f'metric round_idx = {watch_metric}: {v}')
+
+                wandb.log(metrics, step=round_idx)
 
             local_metrics_avg, global_model, scheduler = basic_fedavg(aggregator,
                                                                       client_trainers,
@@ -357,7 +357,8 @@ class Experiment:
                                                                       round_idx,
                                                                       scheduler,
                                                                       device, )
-                # print(local_metrics_avg)
+            print(local_metrics_avg)
+            wandb.log(local_metrics_avg, step=round_idx)
 
                 # log_wandb(local_metrics_avg, step=round_idx)
 
