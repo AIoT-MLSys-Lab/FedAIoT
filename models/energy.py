@@ -11,7 +11,7 @@ class MLP(nn.Module):
         self.layer5 = nn.Linear(hidden_size * 2, hidden_size)
         self.output_layer = nn.Linear(hidden_size, output_size)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.3)
 
     def forward(self, x):
         out = self.relu(self.layer1(x))
