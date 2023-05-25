@@ -37,7 +37,8 @@ def process():
     files = glob.glob('./datasets/widar/Widardata/*/*/*.csv')
     data = {}
     for file in tqdm(files):
-        y = int(file.split('/')[-2].split('-')[0])
+        y = int(file.split('/')[-2].split('-')[0]) - 1
+        assert y >= 0, 'y is negative'
         user = int(file.split('/')[-1].split('-')[0].replace('user', ''))
         if user not in data.keys():
             data[user] = {'X': [], 'Y': []}

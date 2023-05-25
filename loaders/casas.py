@@ -11,14 +11,14 @@ def load_dataset(datasetName='all'):
     Y = np.load('./datasets/casas/npy/' + datasetName + '-y.npy')
     X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
     print(X_train.shape, Y_train.shape, X_test.shape, Y_test.shape)
-    X_tensor = torch.from_numpy(X.astype(np.long))
-    y_tensor = torch.from_numpy(Y.astype(np.long))
+    X_tensor = torch.from_numpy(X.astype(int))
+    y_tensor = torch.from_numpy(Y.astype(int))
 
-    X_tensor_train = torch.from_numpy(X_train.astype(np.long))
-    y_tensor_train = torch.from_numpy(Y_train.astype(np.long))
+    X_tensor_train = torch.from_numpy(X_train.astype(int))
+    y_tensor_train = torch.from_numpy(Y_train.astype(int))
 
-    X_tensor_test = torch.from_numpy(X_test.astype(np.long))
-    y_tensor_test = torch.from_numpy(Y_test.astype(np.long))
+    X_tensor_test = torch.from_numpy(X_test.astype(int))
+    y_tensor_test = torch.from_numpy(Y_test.astype(int))
     # Create a PyTorch Dataset using TensorDataset
     dataset = TensorDataset(X_tensor, y_tensor)
     train_dataset = TensorDataset(X_tensor_train, y_tensor_train)
