@@ -292,11 +292,11 @@ def load_empatica_data_for_participants(participants=PARTICIPANTS_ID, ):
             df = df.resample('250ms').mean()
             df = df.fillna(-1)
             data_dict[p_id]['data'].append(df)
-            data_dict[p_id]['targets'].append(movies_ratings[movie].loc[p_id].to_numpy()[9] / 9.0)
+            data_dict[p_id]['targets'].append(movies_ratings[movie].loc[p_id].to_numpy()[10] / 9.0)
     return data_dict
 
 
-def load_bracelet_data(split=0.8, window_length=40, overlap=0.25, participants=PARTICIPANTS_ID, reprocess=False):
+def load_bracelet_data(split=0.8, window_length=50, overlap=0.25, participants=PARTICIPANTS_ID, reprocess=False):
     if Path('datasets/emognition/bracelet_data.dt').exists() and not reprocess:
         return torch.load('datasets/emognition/bracelet_data.dt')
     dct = load_empatica_data_for_participants(participants=participants)
