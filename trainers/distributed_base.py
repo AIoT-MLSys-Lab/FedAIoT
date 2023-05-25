@@ -199,3 +199,115 @@ class DistributedTrainer:
         local_metrics = {'Local Loss': sum(epoch_loss) / len(epoch_loss), 'learning_rate':
             self.scheduler.get_last_lr()[0]}
         return local_update_state, weight, local_metrics
+
+    def step_low_precision(self, client_idx, client_data, round_idx, precision = 'float32', device='cuda'):
+        # client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
+        #                             indices=ray.get(client_data['indices']))
+        if len(client_data) < self.batch_size:
+            self.batch_size = len(client_data)
+        weight = len(client_data)
+        client_dataloader = DataLoader(
+            dataset=client_data,
+            shuffle=self.shuffle,
+            batch_size=self.batch_size,
+            pin_memory=self.pin_memory,
+            num_workers=4,
+            drop_last=False,
+        )
+        print(torch.cuda.is_initialized())
+        # print(torch.cudnn.version())
+        print(torch.cuda.is_available())
+        print(torch.cuda.device_count())
+
+        model = self.model
+        model.to(device)
+        model.train()
+
+        if precision == 'float16':
+            model.half()  # convert to half precision
+            for layer in model.modules():
+                if isinstance(layer, nn.BatchNorm2d):
+                    layer.float()
+        if precision == 'float64':
+            model.double()  # convert to double precision   
+
+        print("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " Samples " + str(weight))
+        if len(client_dataloader) < 1:
+            warnings.warn("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " data_loader " + str(len(
+                client_dataloader)))
+        logging.info(f"Client ID {client_idx} round Idx {round_idx}")
+
+        criterion = self.criterion.to(device)
+        
+        optimizer = TorchComponentRepository.get_class_by_name(self.optimizer_name, torch.optim.Optimizer)(
+            self.model.parameters(),
+            lr=self.lr,
+
+            # momentum=0.9,
+            # weight_decay=5e-4,
+        )
+
+        epoch_loss = []
+        print(f"Client {client_idx} Scheduler step: ", self.scheduler.get_last_lr(), "Round: ", round_idx)
+        for epoch in range(self.epochs):
+            batch_loss = []
+            loss = np.nan
+            for batch_idx, (data, labels) in tqdm(enumerate(client_dataloader), total=len(client_dataloader)):
+                if len(labels) <= 1:
+                    continue
+                if precision == 'float16':
+                    data = data.to(device).half()
+                    labels = labels.to(device)
+                elif precision == 'float64':
+                    data = data.to(device).double()
+                    labels = labels.to(device)
+                else:
+                    data, labels = data.to(device), labels.to(device)
+                optimizer.zero_grad()
+
+                with autocast(device_type=device, ):  # Enable mixed precision training
+                    if self.mixup != 1:
+                        data, labels_a, labels_b, lam = mixup_data(data, labels, alpha=self.mixup)
+                    output = self.model(data)
+                    if self.dataset_name == 'energy':
+                        output = output.reshape((-1,))
+                    if self.mixup != 1:
+                        loss = mixup_criterion(
+                            criterion,
+                            output,
+                            labels_a,
+                            labels_b,
+                            lam
+                        )
+                    else:
+                        loss = criterion(output, labels)
+
+                # Replace loss.backward() with the following lines to scale the loss and update the gradients
+                self.scaler.scale(loss).backward()
+
+                # Uncomment the line below if you want to use gradient clipping
+                # scaler.unscale_(optimizer)
+                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)
+
+                # Replace optimizer.step() with the following line to update the weights and scale the gradients
+                self.scaler.step(optimizer)
+
+                # Update the scaler
+                self.scaler.update()
+
+                batch_loss.append(loss.item())
+
+            print(f'Client Index = {client_idx}\tEpoch: {epoch}\tBatch Loss: {loss:.6f}\tBatch Number: {batch_idx}')
+            logging.info(
+                f"Client Index = {client_idx}\tEpoch: {epoch}\tBatch Loss: {loss:.6f}\tBatch Number: {batch_idx}")
+            if len(batch_loss) > 0:
+                epoch_loss.append(sum(batch_loss) / len(batch_loss))
+            else:
+                warnings.warn("Batch loss is empty")
+                epoch_loss.append(np.nan)
+        self.scheduler.step()
+        local_update_state = self.model.cpu().state_dict()
+        local_metrics = {'Local Loss': sum(epoch_loss) / len(epoch_loss), 'learning_rate':
+            self.scheduler.get_last_lr()[0]}
+        return local_update_state, weight, local_metrics
+    
