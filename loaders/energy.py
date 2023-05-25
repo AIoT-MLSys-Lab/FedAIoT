@@ -14,15 +14,24 @@ from torchmetrics import Metric, R2Score
 
 
 def digitize_values(values, a, b, num_bins):
-    # Define the bins
-    bins = np.linspace(a, b, num_bins + 1)  # num_bins+1 endpoints for num_bins bins
+    # Sort the values
+    values = np.sort(values)
 
-    # Digitize the values
-    digitized_values = np.digitize(values, bins, right=True) - 1
+    # Determine the indices that will divide values into num_bins equal parts
+    indices = np.linspace(0, len(values), num_bins + 1, endpoint=False, dtype=int)
 
-    # Ensure the output is int32
-    return digitized_values.astype(np.int32)
+    # Create bins using these indices
+    bins = [values[indices[i]:indices[i + 1]] for i in range(num_bins)]
 
+    # Now 'bins' is a list of arrays, where each array is a bin
+    # containing approximately the same number of samples.
+
+    # If you want to assign each original value to a bin index:
+    digitized_values = np.zeros_like(values, dtype=np.int32)
+    for i, b in enumerate(bins):
+        digitized_values[np.isin(values, b)] = i
+
+    return digitized_values
 
 class HandleOutliers(BaseEstimator, TransformerMixin):
     def __init__(self):
