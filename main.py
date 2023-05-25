@@ -23,7 +23,7 @@ import loaders.widar
 import loaders.wisdm
 import wandb
 from aggregators.base import FederatedAveraging
-from analyses.noise import inject_label_noise
+from analyses.noise import inject_label_noise, inject_label_noise_with_matrix
 from loaders.utils import ParameterDict, get_confusion_matrix_plot
 from models.ut_har import *
 from models.utils import load_model
@@ -248,10 +248,13 @@ class Experiment:
 
         if 'label_noise' in analysis and dataset_name in ['wisdm_phone', 'wisdm_watch', 'widar', 'ut_har', 'casas',
                                                           'epic_sounds', 'emognition']:
+            confusion_matrix = pd.read_csv(f'confusion_matrices/conf_{dataset_name}.csv', header=0, index_col=None)
+            confusion_matrix = confusion_matrix.to_numpy()
+            confusion_matrix = confusion_matrix/confusion_matrix.sum(axis=1)
             _, error_rate, error_var = analysis.split('-')
             error_rate = float(error_rate)
             error_var = float(error_var)
-            client_datasets, noise_percentages = inject_label_noise(client_datasets, num_classes, error_rate, error_var)
+            client_datasets, noise_percentages = inject_label_noise_with_matrix(client_datasets, num_classes, confusion_matrix)
             table = wandb.Table(data=[[d] for d in noise_percentages], columns=['noise_ratio'])
             wandb.log({"noise_percentages": wandb.plot.histogram(table, "noise_ratio",
                                                                  title="Label Noise Distribution")
@@ -263,7 +266,7 @@ class Experiment:
         global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
         if trainer == 'BaseTrainer':
             from scorers.classification_evaluator import evaluate
-            if dataset_name in {'energy'}:
+            if dataset_name in {'energy', 'emognition'}:
                 from scorers.regression_evaluator import evaluate
                 criterion = nn.MSELoss(reduction='mean')
                 wandb.config['loss'] = 'MSE'
