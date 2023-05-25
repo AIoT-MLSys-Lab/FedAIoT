@@ -194,6 +194,8 @@ datasets/bewie/
 /weights/
 datasets/wisdm/processed_watch.csv
 datasets/wisdm/processed_phone.csv
+*.html
+*.ini
 /datasets/emognition/_study_data.zip
 *.zip
 datasets/energy/energydata_complete.csv
