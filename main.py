@@ -254,7 +254,10 @@ class Experiment:
             _, error_rate, error_var = analysis.split('-')
             error_rate = float(error_rate)
             error_var = float(error_var)
-            client_datasets, noise_percentages = inject_label_noise_with_matrix(client_datasets, num_classes, confusion_matrix)
+            client_datasets, noise_percentages = inject_label_noise_with_matrix(client_datasets,
+                                                                                num_classes,
+                                                                                confusion_matrix,
+                                                                                error_rate)
             table = wandb.Table(data=[[d] for d in noise_percentages], columns=['noise_ratio'])
             wandb.log({"noise_percentages": wandb.plot.histogram(table, "noise_ratio",
                                                                  title="Label Noise Distribution")

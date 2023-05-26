@@ -257,7 +257,10 @@ class Experiment:
             _, error_rate, error_var = analysis.split('-')
             error_rate = float(error_rate)
             error_var = float(error_var)
-            client_datasets, noise_percentages = inject_label_noise_with_matrix(client_datasets, num_classes, confusion_matrix)
+            client_datasets, noise_percentages = inject_label_noise_with_matrix(client_datasets,
+                                                                                num_classes,
+                                                                                confusion_matrix,
+                                                                                error_rate)
             table = wandb.Table(data=[[d] for d in noise_percentages], columns=['noise_ratio'])
             wandb.log({"noise_percentages": wandb.plot.histogram(table, "noise_ratio",
                                                                  title="Label Noise Distribution")
@@ -365,15 +368,6 @@ class Experiment:
             print(local_metrics_avg)
             wandb.log(local_metrics_avg, step=round_idx)
 
-    # def log_wandb(local_metrics_avg, step):
-    #     for k, v in local_metrics_avg.items():
-    #         if type(v) == torch.Tensor:
-    #             v = v.numpy()
-    #             table = wandb.Table(data=[[d] for d in v], columns=list(range(len(v))))
-    #             wandb.log({k: wandb.plot_table(data_table=table, title=f'confusion matrix')},
-    #                       step=step)
-    #             continue
-    #         wandb.log({k: v}, step=step)
 
 if __name__ == '__main__':
     fire.Fire(Experiment)
