@@ -326,7 +326,7 @@ class Experiment:
         best_model = None
 
         for round_idx in tqdm(range(0, comm_round)):
-            if round_idx % test_frequency == 0:
+            if round_idx % test_frequency == 0 and round_idx > 0:
                 metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes,
                                    batch_size=batch_size)
                 v = metrics.get(watch_metric)
