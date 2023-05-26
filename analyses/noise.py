@@ -70,7 +70,7 @@ def inject_label_noise(client_datasets, class_num, error_ratio, error_var):
 
     return client_datasets_label_error, noise_percentages
 
-def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix):
+def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix, error_rate = 1.0):
     """
     Add label noise to client datasets and log noise percentages to wandb.
 
@@ -84,11 +84,16 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix)
     """
     client_datasets_label_error = []
     noise_percentages = []
+    scale_confusion_matrix = confusion_matrix
+    for i in range(len(scale_confusion_matrix)):
+        scale_confusion_matrix[i] = scale_confusion_matrix[i] * error_rate
+        scale_confusion_matrix[i][i] = (scale_confusion_matrix[i][i] / error_rate) + (1 - scale_confusion_matrix[i][i] / error_rate) * (1 - error_rate)
+
     for original_data in client_datasets:
 
         # Add label noise to dataset and calculate noise percentage
         original_labels = [sample[1] for sample in original_data]
-        new_labels = [np.random.choice(class_num, p=confusion_matrix[label]) for label in original_labels]
+        new_labels = [np.random.choice(class_num, p=scale_confusion_matrix[label]) for label in original_labels]
         new_dataset = [[original_data[i][0], new_labels[i]] for i in range(len(original_data))]
 
         noise_percentage = np.sum(np.array(original_labels) != np.array(new_labels)) / len(original_labels) * 100
