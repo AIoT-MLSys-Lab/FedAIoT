@@ -30,7 +30,7 @@ class BiLSTMModel(nn.Module):
         self.fc = nn.Linear(output_dim * 2, no_activities)
 
     def forward(self, x):
-        x = self.embedding(x)
+        x = self.embedding(x.type(torch.long))
         x, _ = self.lstm(x)
         x = self.fc(x[:, -1, :])
         return x

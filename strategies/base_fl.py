@@ -1,11 +1,17 @@
 import numpy as np
 import ray
-import torch.cuda
 from tqdm import tqdm
 
 
-def distributed_fedavg(aggregator, client_trainers, client_dataset_refs, client_num_per_round, global_model, round_idx,
-                       scheduler, device):
+def distributed_fedavg(aggregator,
+                       client_trainers,
+                       client_dataset_refs,
+                       client_num_per_round,
+                       global_model,
+                       round_idx,
+                       scheduler,
+                       device,
+                       precision):
     # Select random clients for each round
     sampled_clients_idx = np.random.choice(len(client_dataset_refs), client_num_per_round, replace=False)
 
@@ -27,10 +33,11 @@ def distributed_fedavg(aggregator, client_trainers, client_dataset_refs, client_
             client_trainer.update.remote(global_model.state_dict(), scheduler.state_dict())
 
             # Perform a remote training step on the client_trainer
-            remote_step = client_trainer.step.remote(sampled_clients_idx[idx],
-                                                     client_dataset_refs[sampled_clients_idx[idx]],
-                                                     round_idx,
-                                                     device=device)
+            remote_step = client_trainer.step_low_precision.remote(sampled_clients_idx[idx],
+                                                                   client_dataset_refs[sampled_clients_idx[idx]],
+                                                                   round_idx,
+                                                                   precision=precision,
+                                                                   device=device)
             remote_steps.append(remote_step)
 
         # Retrieve remote steps results
@@ -58,7 +65,7 @@ def distributed_fedavg(aggregator, client_trainers, client_dataset_refs, client_
 
 
 def basic_fedavg(aggregator, client_trainers, client_dataset_refs, client_num_per_round, global_model, round_idx,
-                 scheduler, device):
+                 scheduler, precision, device):
     # Select random clients for each round
     sampled_clients_idx = np.random.choice(len(client_dataset_refs), client_num_per_round, replace=False)
 
@@ -80,10 +87,11 @@ def basic_fedavg(aggregator, client_trainers, client_dataset_refs, client_num_pe
             client_trainer.update(global_model.state_dict(), scheduler.state_dict())
 
             # Perform a remote training step on the client_trainer
-            remote_step = client_trainer.step(sampled_clients_idx[idx],
-                                                     client_dataset_refs[sampled_clients_idx[idx]],
-                                                     round_idx,
-                                                     device=device)
+            remote_step = client_trainer.step_low_precision(sampled_clients_idx[idx],
+                                                            client_dataset_refs[sampled_clients_idx[idx]],
+                                                            round_idx,
+                                                            precision,
+                                                            device=device)
             remote_steps.append(remote_step)
 
         # Retrieve remote steps results

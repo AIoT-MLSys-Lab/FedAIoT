@@ -24,8 +24,8 @@ import loaders.widar
 import loaders.wisdm
 import wandb
 from aggregators.base import FederatedAveraging
-from analyses.noise import inject_label_noise, inject_label_noise_with_matrix
-from loaders.utils import ParameterDict, compute_client_target_distribution, get_confusion_matrix_plot
+from analyses.noise import inject_label_noise_with_matrix
+from loaders.utils import ParameterDict, get_confusion_matrix_plot
 from models.ut_har import *
 from models.utils import load_model
 from partition.centralized import CentralizedPartition
@@ -138,6 +138,7 @@ class Experiment:
              analysis: str = config['DEFAULT'].get('analysis', 'baseline'),
              trainer: str = config['DEFAULT'].get('trainer', 'BaseTrainer'),
              class_mixup: float = config['DEFAULT'].getfloat('class_mixup', 1),
+             precision: str = config['DEFAULT'].getfloat('precision', 'float32'),
              watch_metric: str = config['DEFAULT'].get('watch_metric', 'f1_score'),
              ):
         """
@@ -162,6 +163,7 @@ class Experiment:
         :param amp: flag for using mixed precision
         :param watch_metric:
         :param class_mixup:
+        :param precision:
         :param analysis:
         """
         print('Starting...')
@@ -253,7 +255,7 @@ class Experiment:
                                                           'epic_sounds', 'emognition']:
             confusion_matrix = pd.read_csv(f'confusion_matrices/conf_{dataset_name}.csv', header=0, index_col=None)
             confusion_matrix = confusion_matrix.to_numpy()
-            confusion_matrix = confusion_matrix/confusion_matrix.sum(axis=1)
+            confusion_matrix = confusion_matrix / confusion_matrix.sum(axis=1)
             _, error_rate, error_var = analysis.split('-')
             error_rate = float(error_rate)
             error_var = float(error_var)
@@ -330,7 +332,8 @@ class Experiment:
 
         for round_idx in tqdm(range(0, comm_round)):
             if round_idx % test_frequency == 0 and round_idx > 0:
-                metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes, batch_size=batch_size)
+                metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes,
+                                   batch_size=batch_size)
                 v = metrics.get(watch_metric)
                 if isinstance(v, torch.Tensor):
                     v = v.numpy()
@@ -364,7 +367,8 @@ class Experiment:
                                                                             global_model,
                                                                             round_idx,
                                                                             scheduler,
-                                                                            device, )
+                                                                            device,
+                                                                            precision)
             print(local_metrics_avg)
             wandb.log(local_metrics_avg, step=round_idx)
 

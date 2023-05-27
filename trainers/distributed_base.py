@@ -6,11 +6,12 @@ import warnings
 import numpy as np
 import ray
 import torch
-from torch import autocast
+from torch import autocast, nn
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from aggregators.torchcomponentrepository import TorchComponentRepository
 from models.utils import load_model
 from utils import WarmupScheduler
 
@@ -62,7 +63,7 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
 
-@ray.remote(num_gpus=1.0/num_trainers_per_gpu)
+@ray.remote(num_gpus=1.0 / num_trainers_per_gpu)
 class DistributedTrainer:
     def __init__(self, model_name: str,
                  dataset_name: str,
@@ -200,7 +201,7 @@ class DistributedTrainer:
             self.scheduler.get_last_lr()[0]}
         return local_update_state, weight, local_metrics
 
-    def step_low_precision(self, client_idx, client_data, round_idx, precision = 'float32', device='cuda'):
+    def step_low_precision(self, client_idx, client_data, round_idx, precision='float32', device='cuda'):
         # client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
         #                             indices=ray.get(client_data['indices']))
         if len(client_data) < self.batch_size:
@@ -238,7 +239,7 @@ class DistributedTrainer:
         logging.info(f"Client ID {client_idx} round Idx {round_idx}")
 
         criterion = self.criterion.to(device)
-        
+
         optimizer = TorchComponentRepository.get_class_by_name(self.optimizer_name, torch.optim.Optimizer)(
             self.model.parameters(),
             lr=self.lr,
@@ -265,7 +266,7 @@ class DistributedTrainer:
                     data, labels = data.to(device), labels.to(device)
                 optimizer.zero_grad()
 
-                with autocast(device_type=device, ):  # Enable mixed precision training
+                with autocast(device_type=device, dtype=torch.float16):  # Enable mixed precision training
                     if self.mixup != 1:
                         data, labels_a, labels_b, lam = mixup_data(data, labels, alpha=self.mixup)
                     output = self.model(data)
@@ -310,4 +311,3 @@ class DistributedTrainer:
         local_metrics = {'Local Loss': sum(epoch_loss) / len(epoch_loss), 'learning_rate':
             self.scheduler.get_last_lr()[0]}
         return local_update_state, weight, local_metrics
-    
