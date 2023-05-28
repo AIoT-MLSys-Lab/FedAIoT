@@ -138,7 +138,7 @@ class Experiment:
              analysis: str = config['DEFAULT'].get('analysis', 'baseline'),
              trainer: str = config['DEFAULT'].get('trainer', 'BaseTrainer'),
              class_mixup: float = config['DEFAULT'].getfloat('class_mixup', 1),
-             precision: str = config['DEFAULT'].getfloat('precision', 'float32'),
+             precision: str = config['DEFAULT'].get('precision', 'float32'),
              watch_metric: str = config['DEFAULT'].get('watch_metric', 'f1_score'),
              ):
         """

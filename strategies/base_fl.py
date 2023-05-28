@@ -87,11 +87,18 @@ def basic_fedavg(aggregator, client_trainers, client_dataset_refs, client_num_pe
             client_trainer.update(global_model.state_dict(), scheduler.state_dict())
 
             # Perform a remote training step on the client_trainer
-            remote_step = client_trainer.step_low_precision(sampled_clients_idx[idx],
-                                                            client_dataset_refs[sampled_clients_idx[idx]],
-                                                            round_idx,
-                                                            precision,
-                                                            device=device)
+            if precision != 'float32':
+                remote_step = client_trainer.step_low_precision(sampled_clients_idx[idx],
+                                                                client_dataset_refs[sampled_clients_idx[idx]],
+                                                                round_idx,
+                                                                precision,
+                                                                device=device)
+            else:
+                remote_step = client_trainer.step(sampled_clients_idx[idx],
+                                                  client_dataset_refs[sampled_clients_idx[idx]],
+                                                  round_idx,
+                                                  precision,
+                                                  device=device)
             remote_steps.append(remote_step)
 
         # Retrieve remote steps results

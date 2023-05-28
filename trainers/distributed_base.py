@@ -266,35 +266,35 @@ class DistributedTrainer:
                     data, labels = data.to(device), labels.to(device)
                 optimizer.zero_grad()
 
-                with autocast(device_type=device, dtype=torch.float16):  # Enable mixed precision training
-                    if self.mixup != 1:
-                        data, labels_a, labels_b, lam = mixup_data(data, labels, alpha=self.mixup)
-                    output = self.model(data)
-                    if self.dataset_name == 'energy':
-                        output = output.reshape((-1,))
-                    if self.mixup != 1:
-                        loss = mixup_criterion(
-                            criterion,
-                            output,
-                            labels_a,
-                            labels_b,
-                            lam
-                        )
-                    else:
-                        loss = criterion(output, labels)
+                # with autocast(device_type=device, dtype=torch.float16):  # Enable mixed precision training
+                if self.mixup != 1:
+                    data, labels_a, labels_b, lam = mixup_data(data, labels, alpha=self.mixup)
+                output = self.model(data)
+                if self.dataset_name == 'energy':
+                    output = output.reshape((-1,))
+                if self.mixup != 1:
+                    loss = mixup_criterion(
+                        criterion,
+                        output,
+                        labels_a,
+                        labels_b,
+                        lam
+                    )
+                else:
+                    loss = criterion(output, labels)
 
                 # Replace loss.backward() with the following lines to scale the loss and update the gradients
-                self.scaler.scale(loss).backward()
+                loss.backward()
 
                 # Uncomment the line below if you want to use gradient clipping
                 # scaler.unscale_(optimizer)
                 # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)
 
                 # Replace optimizer.step() with the following line to update the weights and scale the gradients
-                self.scaler.step(optimizer)
+                optimizer.step()
 
                 # Update the scaler
-                self.scaler.update()
+                # self.scaler.update()
 
                 batch_loss.append(loss.item())
 

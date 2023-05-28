@@ -78,7 +78,7 @@ class GRU_NET(nn.Module):
 class CNN_NET_V1(nn.Module):
     """Class to design a CNN model."""
 
-    def __init__(self, features,  time_length):
+    def __init__(self, time_length=200):
         """Initialisation of the class (constructor)."""
 
         super().__init__()
