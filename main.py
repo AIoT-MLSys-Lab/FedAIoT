@@ -135,6 +135,7 @@ class Experiment:
              analysis: str = config['DEFAULT'].get('analysis', 'baseline'),
              trainer: str = config['DEFAULT'].get('trainer', 'BaseTrainer'),
              class_mixup: float = config['DEFAULT'].getfloat('class_mixup', 1),
+             precision: str = config['DEFAULT'].get('precision', 'float32'),
              watch_metric: str = config['DEFAULT'].get('watch_metric', 'f1_score'),
              ):
         """
@@ -159,6 +160,7 @@ class Experiment:
         :param amp: flag for using mixed precision
         :param watch_metric:
         :param class_mixup:
+        :param precision:
         :param analysis:
         """
         print('Starting...')
@@ -362,6 +364,7 @@ class Experiment:
                                                                       global_model,
                                                                       round_idx,
                                                                       scheduler,
+                                                                      precision,
                                                                       device, )
             print(local_metrics_avg)
             wandb.log(local_metrics_avg, step=round_idx)
