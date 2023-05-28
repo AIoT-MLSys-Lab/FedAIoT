@@ -10,9 +10,7 @@ class LossMetric(Metric):
         self.add_state("total", default=torch.tensor(0, dtype=float), dist_reduce_fx="mean")
 
     def update(self, output: torch.Tensor, target: torch.Tensor):
-        # print(output.device, target.device)
-        # print(self.loss, self.loss.dtype)
-        l = target.size(0) * self.criterion(output, target).data.item()
+        l = target.size(0) * self.criterion(output, target.long()).data.item()
         self.loss += l
         self.total += target.size(0)
 
