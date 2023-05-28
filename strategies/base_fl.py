@@ -35,16 +35,15 @@ def distributed_fedavg(aggregator,
             # Perform a remote training step on the client_trainer
             if precision != 'float32':
                 remote_step = client_trainer.step_low_precision.remote(sampled_clients_idx[idx],
-                                                                client_dataset_refs[sampled_clients_idx[idx]],
-                                                                round_idx,
-                                                                precision,
-                                                                device=device)
+                                                                       client_dataset_refs[sampled_clients_idx[idx]],
+                                                                       round_idx,
+                                                                       device=device)
             else:
                 remote_step = client_trainer.step.remote(sampled_clients_idx[idx],
-                                                  client_dataset_refs[sampled_clients_idx[idx]],
-                                                  round_idx,
-                                                  precision,
-                                                  device=device)
+                                                         client_dataset_refs[sampled_clients_idx[idx]],
+                                                         round_idx,
+                                                         precision,
+                                                         device=device)
             remote_steps.append(remote_step)
 
         # Retrieve remote steps results
