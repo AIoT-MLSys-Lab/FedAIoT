@@ -184,6 +184,7 @@ class DistributedTrainer:
 
                 # Update the scaler
                 self.scaler.update()
+                torch.cuda.empty_cache()
 
                 batch_loss.append(loss.item())
 
@@ -215,10 +216,6 @@ class DistributedTrainer:
             num_workers=4,
             drop_last=False,
         )
-        print(torch.cuda.is_initialized())
-        # print(torch.cudnn.version())
-        print(torch.cuda.is_available())
-        print(torch.cuda.device_count())
 
         model = self.model
         model.to(device)
@@ -285,7 +282,7 @@ class DistributedTrainer:
 
                 # Replace loss.backward() with the following lines to scale the loss and update the gradients
                 loss.backward()
-
+                torch.cuda.empty_cache()
                 # Uncomment the line below if you want to use gradient clipping
                 # scaler.unscale_(optimizer)
                 # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)

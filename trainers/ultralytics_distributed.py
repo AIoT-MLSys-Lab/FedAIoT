@@ -5,10 +5,8 @@ import os
 
 import ray
 import torch
-import wandb
-from torch import autocast
+from torch import autocast, nn
 from torch.cuda.amp import GradScaler
-from torch.nn import DataParallel
 from torch.optim import lr_scheduler
 from tqdm import tqdm
 from ultralytics.nn.tasks import DetectionModel
@@ -18,9 +16,7 @@ from ultralytics.yolo.v8.detect.train import Loss
 
 from aggregators.torchcomponentrepository import TorchComponentRepository
 from loaders.visdrone import YOLO_HYPERPARAMETERS
-from partition.utils import IndexedSubset
 from utils import WarmupScheduler
-
 
 system_config = configparser.ConfigParser()
 system_config.read('system.yml')
@@ -32,7 +28,7 @@ num_trainers_per_gpu = int(os.environ['num_trainers_per_gpu']) if 'num_gpus' in 
 
 # from validator import YoloValidator
 
-@ray.remote(num_gpus=1.0/num_trainers_per_gpu)
+@ray.remote(num_gpus=1.0 / num_trainers_per_gpu)
 class DistributedUltralyticsYoloTrainer:
     def __init__(self,
                  model_path: str,
@@ -92,6 +88,22 @@ class DistributedUltralyticsYoloTrainer:
         } if losses is not None else {}
         return self.get_model_params(), len(client_data), local_metrics
 
+    def step_low_precision(self, client_idx, client_data, round_idx, precision, device='cuda'):
+        # client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
+        #                             indices=ray.get(client_data['indices']))
+        # wandb.log({'lr': self.scheduler.get_last_lr()[0]}, step=round_idx)
+        losses = None
+        for epoch in range(self.epochs):
+            losses = self.train_one_epoch_with_precision(client_idx, client_data, round_idx, device, precision)
+            self.scheduler.step()
+        local_metrics = {
+            'iou_loss': losses[0],
+            'obj_loss': losses[1],
+            'cls_loss': losses[2],
+            'lr': self.scheduler.get_last_lr()[0]
+        } if losses is not None else {}
+        return self.get_model_params(), len(client_data), local_metrics
+
     def train_one_epoch(self, client_idx, client_data, round_idx, device):
         weight = len(client_data)
         client_dataloader = torch.utils.data.DataLoader(
@@ -122,6 +134,49 @@ class DistributedUltralyticsYoloTrainer:
 
             # Backward
             self.scaler.scale(loss).backward()
+            self.optimizer_step()
+            torch.cuda.empty_cache()
+        return tloss.cpu().numpy()
+
+    def train_one_epoch_with_precision(self, client_idx, client_data, round_idx, device, precision):
+        weight = len(client_data)
+        client_dataloader = torch.utils.data.DataLoader(
+            dataset=client_data,
+            shuffle=self.shuffle,
+            batch_size=self.batch_size,
+            num_workers=1,
+            drop_last=False,
+            collate_fn=YOLODataset.collate_fn
+        )
+        # self.model = DataParallel(self.model)
+
+        model = self.model
+        model.to(device)
+        model.train()
+
+        if precision == 'float16':
+            model.half()  # convert to half precision
+            for layer in model.modules():
+                if isinstance(layer, nn.BatchNorm2d):
+                    layer.float()
+        if precision == 'float64':
+            model.double()  # convert to double precision
+        print("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " Samples " + str(weight))
+        logging.info(f"Client ID {client_idx} round Idx {round_idx}")
+        # pbar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
+        tloss = None
+        self.optimizer.zero_grad()
+        print(f"Client {client_idx} Scheduler step: ", self.scheduler.get_last_lr(), "Round: ", round_idx)
+
+        for i, batch in tqdm(enumerate(client_dataloader), total=len(client_dataloader)):
+            batch = self.preprocess_batch(batch, device)
+            preds = model(batch['img'])
+            loss, loss_items = self.criterion(preds, batch)
+            tloss = (tloss * i + loss_items) / (i + 1) if tloss is not None \
+                else loss_items
+
+            # Backward
+            loss.backward()
             self.optimizer_step()
             torch.cuda.empty_cache()
         return tloss.cpu().numpy()
