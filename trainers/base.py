@@ -8,7 +8,7 @@ import ray
 import torch
 from torch import autocast, nn
 from torch.cuda.amp import GradScaler
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from tqdm import tqdm
 
 from aggregators.torchcomponentrepository import TorchComponentRepository
@@ -36,6 +36,38 @@ def mixup_data(x, y, alpha=1.0):
     # Create label/mixup label pairs
     y_a, y_b = y, y[index]
     return mixed_x, y_a, y_b, lam
+
+
+def create_dataloader(dataset, batch_size=64, shuffle=None, pin_memory=None, num_workers=None):
+    if hasattr(dataset, 'targets'):  # If the dataset has a 'targets' attribute
+        # Count the number of samples per class
+        class_counts = {}
+        for label in dataset.targets:
+            class_counts[label] = class_counts.get(label, 0) + 1
+
+        # Calculate weights
+        weights = [1.0 / (1 + class_counts[label]) for label in dataset.targets]
+
+        # Create sampler and dataloader
+        sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
+        dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler,
+                                shuffle=shuffle,
+                                pin_memory=pin_memory,
+                                num_workers=num_workers,
+                                drop_last=False,
+                                )
+    else:
+        # If the dataset does not have a 'targets' attribute, use a regular DataLoader
+        dataloader = DataLoader(
+            dataset=dataset,
+            shuffle=shuffle,
+            batch_size=batch_size,
+            pin_memory=pin_memory,
+            num_workers=num_workers,
+            drop_last=False,
+        )
+
+    return dataloader
 
 
 def mixup_criterion(criterion, pred, y_a, y_b, lam, weights=None):
@@ -130,14 +162,11 @@ class BaseTrainer:
         if len(client_data) < self.batch_size:
             self.batch_size = len(client_data)
         weight = len(client_data)
-        client_dataloader = DataLoader(
-            dataset=client_data,
-            shuffle=self.shuffle,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=4,
-            drop_last=False,
-        )
+        client_dataloader = create_dataloader(dataset=client_data,
+                                              batch_size=self.batch_size,
+                                              shuffle=self.shuffle,
+                                              pin_memory=self.pin_memory,
+                                              num_workers=4)
         print(torch.cuda.is_initialized())
         # print(torch.cudnn.version())
         print(torch.cuda.is_available())

@@ -22,9 +22,11 @@ import loaders.ut_har
 import loaders.visdrone
 import loaders.widar
 import loaders.wisdm
+import loaders.spatial_transforms
 import wandb
 from aggregators.base import FederatedAveraging
 from analyses.noise import inject_label_noise_with_matrix
+from loaders.spatial_transforms import Compose, Normalize
 from loaders.utils import ParameterDict, get_confusion_matrix_plot
 from models.ut_har import *
 from models.utils import load_model
@@ -203,8 +205,11 @@ class Experiment:
             dataset = loaders.epic_sounds.load_dataset()
             num_classes = 44
         elif dataset_name == 'ego4d':
-            dataset = loaders.ego4d.load_dataset()
-            num_classes = 1
+            dataset = loaders.ego4d.load_dataset(transforms=Compose([Normalize([0.45], [0.225])]))
+            num_classes = 17
+            # print(dataset['train'][1][1].shape)
+            # print(np.unique(dataset['train'].targets), len(np.unique(dataset['train'].targets)))
+            # raise ValueError('ego4d')
         else:
             raise ValueError(f'Dataset {dataset_name} type not supported')
 
@@ -237,7 +242,7 @@ class Experiment:
         wandb.config['num_samples'] = len(dataset['train'])
         client_datasets = partition(dataset['train'])
         partition_name = partition_type if partition_type != 'dirichlet' else f'{partition_type}_{alpha}'
-        if hasattr(dataset['train'], 'targets'):
+        if hasattr(dataset['train'], 'targets') and dataset_name != 'ego4d':
             data_distribution, class_distribution = compute_client_data_distribution(datasets=client_datasets,
                                                                                      num_classes=num_classes)
             class_dist, sample_dist = get_html_plots(data_distribution, class_distribution)
@@ -271,7 +276,7 @@ class Experiment:
         data_ref = ray.put(dataset['train'])
         client_dataset_refs = [ray.put(client_dataset) for client_dataset in
                                client_datasets]
-        global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
+        global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name).cpu()
         if trainer == 'BaseTrainer':
             from scorers.classification_evaluator import evaluate
             if dataset_name in {'energy'}:
@@ -279,8 +284,9 @@ class Experiment:
                 criterion = nn.MSELoss()
                 wandb.config['loss'] = 'MSE'
             elif dataset_name in {'ego4d'}:
-                criterion = nn.BCEWithLogitsLoss()
-                wandb.config['loss'] = 'BCEWithLogitsLoss'
+                from scorers.localization_evaluator import evaluate
+                criterion = nn.CrossEntropyLoss()
+                wandb.config['loss'] = 'CrossEntropyLoss'
             else:
                 criterion = nn.CrossEntropyLoss()
                 wandb.config['loss'] = 'CrossEntropyLoss'
@@ -343,7 +349,7 @@ class Experiment:
                     del metrics['confusion']
                 if v is not None and v > best_metric:
                     best_metric = v
-                    best_model = copy.deepcopy(global_model)
+                    best_model = copy.deepcopy(global_model.cpu())
                     path = f'weights/{wandb.run.name}'
                     Path(path).mkdir(parents=True, exist_ok=True)
                     torch.save(best_model.state_dict(), f'{path}/best_model.pt')

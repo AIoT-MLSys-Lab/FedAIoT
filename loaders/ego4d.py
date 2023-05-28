@@ -18,7 +18,7 @@ class StateChangeDetectionAndKeyframeLocalisation(torch.utils.data.Dataset):
     'val.json' provided.
     """
 
-    def __init__(self, mode):
+    def __init__(self, mode, transforms):
         assert mode in [
             'train',
             'val',
@@ -37,6 +37,7 @@ class StateChangeDetectionAndKeyframeLocalisation(torch.utils.data.Dataset):
         negative_vid_err_msg = "Wrong negative clips' frame path provided"
         assert os.path.exists(self.negative_vid_dir), negative_vid_err_msg
         self._construct_loader()
+        self.transforms = transforms
 
     def _construct_loader(self):
         self.package = dict()
@@ -92,14 +93,25 @@ class StateChangeDetectionAndKeyframeLocalisation(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         info = self.package[index]
-        state = info['state']
+        state = 0.0 if info['state'] == 1 else 1.0
         self._extract_clip_frames(info)
         frames, labels, _ = self._sample_frames_gen_labels(info)
         frames = torch.as_tensor(frames).permute(3, 0, 1, 2)
+        # performance, why?
+        frames = self.transforms(frames)
+
         clip_len = info['clip_end_sec'] - info['clip_start_sec']
         clip_frame = info['clip_end_frame'] - info['clip_start_frame'] + 1
         fps = clip_frame / clip_len
-        return frames, labels
+        pnr_frame = info['pnr_frame'] if state == 0.0 else -1
+        clip_start_sec = info['clip_start_sec']
+        clip_end_sec = info['clip_end_sec']
+        clip_start_frame = info['clip_start_frame']
+        clip_end_frame = info['clip_end_frame']
+        if self.mode == 'train':
+            return frames, np.argmax(np.append(labels, state))
+        return frames, np.argmax(np.append(labels, state)), (clip_start_sec, clip_end_sec, clip_start_frame,
+                                                             clip_end_frame, pnr_frame)
         # return [frames], labels, state, fps, info
 
     def _extract_clip_frames(self, info):
@@ -345,9 +357,9 @@ class StateChangeDetectionAndKeyframeLocalisation(torch.utils.data.Dataset):
         return frames
 
 
-def load_dataset():
+def load_dataset(transforms):
     data_dict = {
-        'train': StateChangeDetectionAndKeyframeLocalisation('train'),
-        'test': StateChangeDetectionAndKeyframeLocalisation('val')
+        'train': StateChangeDetectionAndKeyframeLocalisation('train', transforms),
+        'test': StateChangeDetectionAndKeyframeLocalisation('val', transforms)
     }
     return data_dict
