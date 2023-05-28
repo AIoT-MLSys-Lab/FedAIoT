@@ -37,12 +37,12 @@ def distributed_fedavg(aggregator,
                 remote_step = client_trainer.step_low_precision.remote(sampled_clients_idx[idx],
                                                                        client_dataset_refs[sampled_clients_idx[idx]],
                                                                        round_idx,
+                                                                       precision,
                                                                        device=device)
             else:
                 remote_step = client_trainer.step.remote(sampled_clients_idx[idx],
                                                          client_dataset_refs[sampled_clients_idx[idx]],
                                                          round_idx,
-                                                         precision,
                                                          device=device)
             remote_steps.append(remote_step)
 
