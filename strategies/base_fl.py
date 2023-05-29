@@ -103,7 +103,6 @@ def basic_fedavg(aggregator, client_trainers, client_dataset_refs, client_num_pe
                 remote_step = client_trainer.step(sampled_clients_idx[idx],
                                                   client_dataset_refs[sampled_clients_idx[idx]],
                                                   round_idx,
-                                                  precision,
                                                   device=device)
             remote_steps.append(remote_step)
 
