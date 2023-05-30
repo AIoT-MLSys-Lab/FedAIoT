@@ -28,8 +28,8 @@ num_trainers_per_gpu = int(os.environ['num_trainers_per_gpu']) if 'num_gpus' in 
 
 # from validator import YoloValidator
 
-@ray.remote(num_gpus=1.0 / num_trainers_per_gpu)
-class DistributedUltralyticsYoloTrainer:
+
+class UltralyticsYoloTrainer:
     def __init__(self,
                  model_path: str,
                  state_dict: dict,
@@ -237,3 +237,28 @@ class DistributedUltralyticsYoloTrainer:
     #     boxes = np.concatenate([lb['bboxes'] for lb in self.train_loader.dataset.labels], 0)
     #     cls = np.concatenate([lb['cls'] for lb in self.train_loader.dataset.labels], 0)
     #     plot_labels(boxes, cls.squeeze(), names=self.data['names'], save_dir=self.save_dir)
+
+
+@ray.remote(num_gpus=1.0 / num_trainers_per_gpu)
+class DistributedUltralyticsYoloTrainer(UltralyticsYoloTrainer):
+    def __init__(self,
+                 model_path: str,
+                 state_dict: dict,
+                 optimizer_name,
+                 lr=.1,
+                 batch_size=20,
+                 shuffle=True,
+                 epochs=1,
+                 device='cuda',
+                 amp=True,
+                 args=YOLO_HYPERPARAMETERS):
+        super().__init__(model_path,
+                         state_dict,
+                         optimizer_name,
+                         lr,
+                         batch_size,
+                         shuffle,
+                         epochs,
+                         device,
+                         amp,
+                         args)

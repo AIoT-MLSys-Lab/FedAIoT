@@ -14,7 +14,7 @@ def distributed_fedavg(aggregator,
                        precision):
     # Select random clients for each round
     sampled_clients_idx = np.random.choice(len(client_dataset_refs), client_num_per_round, replace=False)
-
+    print(f"selected clients: {sampled_clients_idx}")
     # Initialize lists to store updates, weights, and local metrics
     all_updates, all_weights, all_local_metrics = [], [], []
 
@@ -48,17 +48,21 @@ def distributed_fedavg(aggregator,
 
         # Retrieve remote steps results
         print(f"length of steps: {len(remote_steps)}")
-        updates, weights, local_metrics = zip(*ray.get(remote_steps))
+        updates, num_client_samples, local_metrics = zip(*ray.get(remote_steps))
 
         # Add the results to the overall lists
-        all_updates.extend(updates)
-        all_weights.extend(weights)
-        all_local_metrics.extend(local_metrics)
+        for u, n, l in zip(updates, num_client_samples, local_metrics):
+            if n > 0:
+                all_updates.append(u)
+                all_weights.append(n)
+                all_local_metrics.append(l)
         # torch.cuda.empty_cache()
 
     # Calculate the average local metrics
     local_metrics_avg = {key: sum(metric[key] for metric in all_local_metrics if metric[key]) / len(all_local_metrics)
                          for key in all_local_metrics[0]}
+
+    print(all_local_metrics)
 
     # Update the global model using the aggregator
     state_n = aggregator.step(all_updates, all_weights, round_idx)
@@ -70,11 +74,18 @@ def distributed_fedavg(aggregator,
     return local_metrics_avg, global_model, scheduler
 
 
-def basic_fedavg(aggregator, client_trainers, client_dataset_refs, client_num_per_round, global_model, round_idx,
-                 scheduler, precision, device):
+def basic_fedavg(aggregator,
+                 client_trainers,
+                 client_dataset_refs,
+                 client_num_per_round,
+                 global_model,
+                 round_idx,
+                 scheduler,
+                 device,
+                 precision):
     # Select random clients for each round
     sampled_clients_idx = np.random.choice(len(client_dataset_refs), client_num_per_round, replace=False)
-
+    print(f"selected clients: {sampled_clients_idx}")
     # Initialize lists to store updates, weights, and local metrics
     all_updates, all_weights, all_local_metrics = [], [], []
 
@@ -108,17 +119,21 @@ def basic_fedavg(aggregator, client_trainers, client_dataset_refs, client_num_pe
 
         # Retrieve remote steps results
         print(f"length of steps: {len(remote_steps)}")
-        updates, weights, local_metrics = zip(*remote_steps)
+        updates, num_client_samples, local_metrics = zip(*remote_steps)
 
         # Add the results to the overall lists
         all_updates.extend(updates)
-        all_weights.extend(weights)
+        all_weights.extend(num_client_samples)
         all_local_metrics.extend(local_metrics)
         # torch.cuda.empty_cache()
 
     # Calculate the average local metrics
     local_metrics_avg = {key: sum(metric[key] for metric in all_local_metrics if metric[key]) / len(all_local_metrics)
                          for key in all_local_metrics[0]}
+    for m in all_local_metrics:
+        if m['Local Loss'] == 0 or np.isnan(m['Local Loss']):
+            break
+    print(all_local_metrics)
 
     # Update the global model using the aggregator
     state_n = aggregator.step(all_updates, all_weights, round_idx)

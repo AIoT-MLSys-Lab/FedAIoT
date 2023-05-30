@@ -8,7 +8,7 @@ import ray
 import torch
 from torch import autocast, nn
 from torch.cuda.amp import GradScaler
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from tqdm import tqdm
 
 from aggregators.torchcomponentrepository import TorchComponentRepository
@@ -63,8 +63,38 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
 
-@ray.remote(num_gpus=1.0 / num_trainers_per_gpu)
-class DistributedTrainer:
+def create_dataloader(dataset, batch_size=64, shuffle=None, pin_memory=None, num_workers=None):
+    if hasattr(dataset, 'targets'):  # If the dataset has a 'targets' attribute
+        # Count the number of samples per class
+        class_counts = {}
+        for label in dataset.targets:
+            class_counts[label] = class_counts.get(label, 0) + 1
+
+        # Calculate weights
+        weights = [1.0 / (1 + class_counts[label]) for label in dataset.targets]
+
+        # Create sampler and dataloader
+        sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
+        dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler,
+                                pin_memory=pin_memory,
+                                num_workers=num_workers,
+                                drop_last=False,
+                                )
+    else:
+        # If the dataset does not have a 'targets' attribute, use a regular DataLoader
+        dataloader = DataLoader(
+            dataset=dataset,
+            shuffle=shuffle,
+            batch_size=batch_size,
+            pin_memory=pin_memory,
+            num_workers=num_workers,
+            drop_last=False,
+        )
+
+    return dataloader
+
+
+class BaseTrainer:
     def __init__(self, model_name: str,
                  dataset_name: str,
                  state_dict: dict,
@@ -99,9 +129,8 @@ class DistributedTrainer:
         self.optimizer = TorchComponentRepository.get_class_by_name(self.optimizer_name, torch.optim.Optimizer)(
             self.model.parameters(),
             lr=self.lr,
-
-            # momentum=0.9,
-            # weight_decay=5e-4,
+            momentum=0.9,
+            weight_decay=5e-4,
         )
         # print(TorchRepo.name2cls("linearlr", torch.optim.lr_scheduler.LRScheduler))
         self.base_scheduler = TorchComponentRepository.get_class_by_name(scheduler,
@@ -126,81 +155,67 @@ class DistributedTrainer:
         return self.model.cpu().state_dict()
 
     def step(self, client_idx, client_data, round_idx, device='cuda'):
-        # client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
-        #                             indices=ray.get(client_data['indices']))
+
         if len(client_data) < self.batch_size:
-            self.batch_size = len(client_data)
-        weight = len(client_data)
-        client_dataloader = DataLoader(
-            dataset=client_data,
-            shuffle=self.shuffle,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=4,
-            drop_last=False,
-        )
-        print(torch.cuda.is_initialized())
-        # print(torch.cudnn.version())
-        print(torch.cuda.is_available())
-        print(torch.cuda.device_count())
+            batch_size = len(client_data)
+        else:
+            batch_size = self.batch_size
+
+        client_dataloader = create_dataloader(dataset=client_data, batch_size=batch_size, shuffle=self.shuffle,
+                                              pin_memory=self.pin_memory, num_workers=4)
 
         self.model.to(device)
         self.model.train()
-        print("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " Samples " + str(weight))
-        if len(client_dataloader) < 1:
-            warnings.warn("Client ID " + str(client_idx) + " round Idx " + str(round_idx) + " data_loader " + str(len(
-                client_dataloader)))
-        logging.info(f"Client ID {client_idx} round Idx {round_idx}")
 
         criterion = self.criterion.to(device)
         optimizer = self.optimizer
 
         epoch_loss = []
-        print(f"Client {client_idx} Scheduler step: ", self.scheduler.get_last_lr(), "Round: ", round_idx)
+
         for epoch in range(self.epochs):
             batch_loss = []
-            loss = np.nan
-            for batch_idx, (data, labels) in tqdm(enumerate(client_dataloader), total=len(client_dataloader)):
-                if len(labels) <= 1:
+
+            for batch_idx, (data, labels) in enumerate(client_dataloader):
+
+                if len(labels) < 1:
                     continue
+
                 data, labels = data.to(device), labels.to(device)
                 optimizer.zero_grad()
 
-                with autocast(device_type=device, ):  # Enable mixed precision training
+                with autocast(device_type=device):  # Enable mixed precision training
                     output = self.model(data)
+
                     if self.dataset_name == 'energy':
                         output = output.reshape((-1,))
+
                     loss = criterion(output, labels)
 
-                # Replace loss.backward() with the following lines to scale the loss and update the gradients
+                if torch.isnan(loss):
+                    print('nan loss observed')
+                    continue
+
                 self.scaler.scale(loss).backward()
-
-                # Uncomment the line below if you want to use gradient clipping
-                # scaler.unscale_(optimizer)
-                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)
-
-                # Replace optimizer.step() with the following line to update the weights and scale the gradients
                 self.scaler.step(optimizer)
-
-                # Update the scaler
                 self.scaler.update()
-                torch.cuda.empty_cache()
 
                 batch_loss.append(loss.item())
 
-            print(f'Client Index = {client_idx}\tEpoch: {epoch}\tBatch Loss: {loss:.6f}\tBatch Number: {batch_idx}')
-            logging.info(
-                f"Client Index = {client_idx}\tEpoch: {epoch}\tBatch Loss: {loss:.6f}\tBatch Number: {batch_idx}")
+                torch.cuda.empty_cache()
+
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-            else:
-                warnings.warn("Batch loss is empty")
-                epoch_loss.append(np.nan)
-        self.scheduler.step()
+
+            self.scheduler.step()
+        # if not epoch_loss:
+        #     print(f'length of dataloader:{epoch_loss}, {len(client_data)}, {len(client_dataloader)}')
+        #     raise ValueError(
+        #         f'length of dataloader:{epoch_loss},{batch_loss}, {len(client_data)}, {len(client_dataloader)}')
         local_update_state = self.model.cpu().state_dict()
-        local_metrics = {'Local Loss': sum(epoch_loss) / len(epoch_loss), 'learning_rate':
-            self.scheduler.get_last_lr()[0]}
-        return local_update_state, weight, local_metrics
+        local_metrics = {'Local Loss': np.mean(epoch_loss) if epoch_loss != [] else 0,
+                         'learning_rate': self.scheduler.get_last_lr()[0]}
+
+        return local_update_state, len(client_data), local_metrics
 
     def step_low_precision(self, client_idx, client_data, round_idx, precision='float32', device='cuda'):
         # client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
@@ -208,15 +223,11 @@ class DistributedTrainer:
         if len(client_data) < self.batch_size:
             self.batch_size = len(client_data)
         weight = len(client_data)
-        client_dataloader = DataLoader(
-            dataset=client_data,
-            shuffle=self.shuffle,
-            batch_size=self.batch_size,
-            pin_memory=self.pin_memory,
-            num_workers=4,
-            drop_last=False,
-        )
-
+        client_dataloader = create_dataloader(dataset=client_data,
+                                              batch_size=self.batch_size,
+                                              shuffle=self.shuffle,
+                                              pin_memory=self.pin_memory,
+                                              num_workers=4)
         model = self.model
         model.to(device)
         model.train()
@@ -308,3 +319,31 @@ class DistributedTrainer:
         local_metrics = {'Local Loss': sum(epoch_loss) / len(epoch_loss), 'learning_rate':
             self.scheduler.get_last_lr()[0]}
         return local_update_state, weight, local_metrics
+
+
+@ray.remote(num_gpus=1.0 / num_trainers_per_gpu)
+class DistributedTrainer(BaseTrainer):
+    def __init__(self, model_name: str,
+                 dataset_name: str,
+                 state_dict: dict,
+                 criterion,
+                 optimizer_name,
+                 lr,
+                 batch_size,
+                 class_mixup,
+                 shuffle=True,
+                 scheduler='LinearLR', gamma=1, milestones=[],
+                 epochs=1,
+                 amp=True, ):
+        super().__init__(model_name,
+                         dataset_name,
+                         state_dict,
+                         criterion,
+                         optimizer_name,
+                         lr,
+                         batch_size,
+                         class_mixup,
+                         shuffle,
+                         scheduler, gamma, milestones,
+                         epochs,
+                         amp, )
