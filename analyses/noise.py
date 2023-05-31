@@ -97,9 +97,9 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
         label_distribution = {}
         for sample in original_data:
             if sample[1] in label_distribution.keys():
-                label_distribution[sample[1]] = label_distribution[sample[1]] + 1
+                label_distribution[int(sample[1])] = label_distribution[int(sample[1])] + 1
             else:
-                label_distribution[sample[1]] = 1
+                label_distribution[int(sample[1])] = 1
         base_confusion = 0
         for i in range(len(scale_confusion_matrix)):
             base_confusion = base_confusion + scale_confusion_matrix[i][i] * label_distribution[i]
