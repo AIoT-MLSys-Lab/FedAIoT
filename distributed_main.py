@@ -137,9 +137,11 @@ class Experiment:
             client_datasets, noise_percentages = add_label_noise(analysis, dataset_name, client_datasets, num_classes)
             plot_noise_distribution(noise_percentages)
 
+        print('Saving dataset in object store')
         data_ref = ray.put(dataset['train'])
+        print('Saving client indices in object store')
         client_dataset_refs = [ray.put(client_dataset) for client_dataset in
-                               client_datasets]
+                               tqdm(client_datasets)]
 
         global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
         if resume:
