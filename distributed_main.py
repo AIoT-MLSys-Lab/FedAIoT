@@ -33,7 +33,8 @@ num_gpus, num_trainers_per_gpu = read_system_variable(system_config)
 
 YOLO_HYPERPARAMETERS = get_default_yolo_hyperparameters()
 
-ray.init(num_gpus=num_gpus)
+ray.init(ignore_reinit_error=True, num_cpus=4, num_gpus=num_gpus)
+print("success")
 
 
 class Experiment:
@@ -69,7 +70,7 @@ class Experiment:
              watch_metric: str = run_config['DEFAULT'].get('watch_metric', 'f1_score'),
              seed: int = 1,
              milestones: list[int] = None,
-             resume: bool = False
+             resume: str = ""
              ):
         """
         :param model: neural network used in training
@@ -144,7 +145,7 @@ class Experiment:
                                tqdm(client_datasets)]
 
         global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
-        if resume:
+        if resume != "" and Path(f'weights/{resume}/best_model.pt').exists():
             global_model.load_state_dict(f'weights/{wandb.run.name}/best_model.pt')
         global_model = global_model.cpu()
 
