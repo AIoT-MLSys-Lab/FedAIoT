@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 import wandb
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
@@ -93,7 +92,7 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
 
         # Add label noise to dataset and calculate noise percentage
         original_labels = [sample[1] for sample in original_data]
-        new_labels = [np.random.choice(class_num, p=scale_confusion_matrix[label]) for label in original_labels]
+        new_labels = [np.random.choice(class_num, p=scale_confusion_matrix[label]/sum(scale_confusion_matrix[label])) for label in original_labels]
         new_dataset = [[original_data[i][0], new_labels[i]] for i in range(len(original_data))]
 
         noise_percentage = np.sum(np.array(original_labels) != np.array(new_labels)) / len(original_labels) * 100
