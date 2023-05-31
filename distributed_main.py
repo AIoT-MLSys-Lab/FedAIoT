@@ -8,6 +8,7 @@ import fire
 import numpy as np
 import pandas as pd
 import ray
+import torch
 from tqdm import tqdm
 
 import wandb
@@ -146,7 +147,7 @@ class Experiment:
 
         global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
         if resume != "" and Path(f'weights/{resume}/best_model.pt').exists():
-            global_model.load_state_dict(f'weights/{resume}/best_model.pt')
+            global_model.load_state_dict(torch.load(f'weights/{resume}/best_model.pt'))
         global_model = global_model.cpu()
 
         if trainer == 'BaseTrainer':
