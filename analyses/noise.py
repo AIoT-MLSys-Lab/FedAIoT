@@ -2,6 +2,7 @@ import numpy as np
 import wandb
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
+from sympy import *
 
 
 class NoisyDataset(Dataset):
@@ -69,7 +70,7 @@ def inject_label_noise(client_datasets, class_num, error_ratio, error_var):
 
     return client_datasets_label_error, noise_percentages
 
-def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix, error_rate = 1.0):
+def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix, error_label_ratio):
     """
     Add label noise to client datasets and log noise percentages to wandb.
 
@@ -83,14 +84,27 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
     """
     client_datasets_label_error = []
     noise_percentages = []
-    scale_confusion_matrix = confusion_matrix
-    for i in range(len(scale_confusion_matrix)):
-        scale_confusion_matrix[i] = scale_confusion_matrix[i] * error_rate
-        scale_confusion_matrix[i][i] = (scale_confusion_matrix[i][i] / error_rate) + (1 - scale_confusion_matrix[i][i] / error_rate) * (1 - error_rate)
-
+    # scale_confusion_matrix = confusion_matrix
+    # solve the scale factor to match the error_label_ratio
+    scale_factor = []
     for original_data in client_datasets:
-
-        # Add label noise to dataset and calculate noise percentage
+        scale_confusion_matrix = confusion_matrix
+        label_distribution = {}
+        for sample in original_data:
+            if sample[1] in label_distribution.keys():
+                label_distribution[sample[1]] = label_distribution[sample[1]] + 1
+            else:
+                label_distribution[sample[1]] = 1
+        base_confusion = 0
+        for i in range(len(scale_confusion_matrix)):
+            base_confusion = base_confusion + scale_confusion_matrix[i][i] * label_distribution[i]
+        x = symbols('x')
+        z = solve(((base_confusion * x / len(original_data)) - (1 - error_label_ratio)), x)
+        z = np.array(z).astype(float)
+        scale_factor.append(z[0])
+        for i in range(len(scale_confusion_matrix)):
+            scale_confusion_matrix[i] = scale_confusion_matrix[i] * z[0]
+            scale_confusion_matrix[i][i] = (scale_confusion_matrix[i][i] / z[0]) + (1 - scale_confusion_matrix[i][i] / z[0]) * (1 - z[0])
         original_labels = [sample[1] for sample in original_data]
         new_labels = [np.random.choice(class_num, p=scale_confusion_matrix[label]/sum(scale_confusion_matrix[label])) for label in original_labels]
         new_dataset = [[original_data[i][0], new_labels[i]] for i in range(len(original_data))]
@@ -99,6 +113,23 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
         noise_percentages.append(noise_percentage)
 
         client_datasets_label_error.append(new_dataset)
+
+
+    # for i in range(len(scale_confusion_matrix)):
+    #     scale_confusion_matrix[i] = scale_confusion_matrix[i] * error_rate
+    #     scale_confusion_matrix[i][i] = (scale_confusion_matrix[i][i] / error_rate) + (1 - scale_confusion_matrix[i][i] / error_rate) * (1 - error_rate)
+
+    # for original_data in client_datasets:
+
+    #     # Add label noise to dataset and calculate noise percentage
+    #     original_labels = [sample[1] for sample in original_data]
+    #     new_labels = [np.random.choice(class_num, p=scale_confusion_matrix[label]/sum(scale_confusion_matrix[label])) for label in original_labels]
+    #     new_dataset = [[original_data[i][0], new_labels[i]] for i in range(len(original_data))]
+
+    #     noise_percentage = np.sum(np.array(original_labels) != np.array(new_labels)) / len(original_labels) * 100
+    #     noise_percentages.append(noise_percentage)
+
+    #     client_datasets_label_error.append(new_dataset)
 
     return client_datasets_label_error, noise_percentages
 
