@@ -64,7 +64,7 @@ def set_seed(seed: int):
 
 
 def create_dataloader(dataset, batch_size=64, shuffle=None, pin_memory=None, num_workers=None):
-    if hasattr(dataset, 'targets'):  # If the dataset has a 'targets' attribute
+    if False and hasattr(dataset, 'targets'):  # If the dataset has a 'targets' attribute
         # Count the number of samples per class
         class_counts = {}
         for label in dataset.targets:
