@@ -64,7 +64,7 @@ def set_seed(seed: int):
 
 
 def create_dataloader(dataset, batch_size=64, shuffle=None, pin_memory=None, num_workers=None):
-    if False and hasattr(dataset, 'targets'):  # If the dataset has a 'targets' attribute
+    if hasattr(dataset, 'targets'):  # If the dataset has a 'targets' attribute
         # Count the number of samples per class
         class_counts = {}
         for label in dataset.targets:
@@ -267,8 +267,12 @@ class BaseTrainer:
                 if precision == 'float16':
                     data = data.to(device).half()
                     labels = labels.to(device)
+                    if labels.dtype == torch.float32:
+                        labels = labels.half()
                 elif precision == 'float64':
                     data = data.to(device).double()
+                    if labels.dtype == torch.float32:
+                        labels = labels.double()
                     labels = labels.to(device)
                 else:
                     data, labels = data.to(device), labels.to(device)
