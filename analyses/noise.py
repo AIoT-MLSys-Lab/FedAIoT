@@ -85,6 +85,11 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
     client_datasets_label_error = []
     noise_percentages = []
     # scale_confusion_matrix = confusion_matrix
+
+    # normalized the confusion matrix
+    for i in range(len(confusion_matrix)):
+        confusion_matrix[i] = confusion_matrix[i]/sum(confusion_matrix[i])
+
     # solve the scale factor to match the error_label_ratio
     scale_factor = []
     for original_data in client_datasets:
@@ -106,7 +111,7 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
             scale_confusion_matrix[i] = scale_confusion_matrix[i] * z[0]
             scale_confusion_matrix[i][i] = (scale_confusion_matrix[i][i] / z[0]) + (1 - scale_confusion_matrix[i][i] / z[0]) * (1 - z[0])
         original_labels = [sample[1] for sample in original_data]
-        new_labels = [np.random.choice(class_num, p=scale_confusion_matrix[label]/sum(scale_confusion_matrix[label])) for label in original_labels]
+        new_labels = [np.random.choice(class_num, p=scale_confusion_matrix[label]) for label in original_labels]
         new_dataset = [[original_data[i][0], new_labels[i]] for i in range(len(original_data))]
 
         noise_percentage = np.sum(np.array(original_labels) != np.array(new_labels)) / len(original_labels) * 100
