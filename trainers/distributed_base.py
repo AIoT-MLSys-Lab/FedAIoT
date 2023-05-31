@@ -175,7 +175,7 @@ class BaseTrainer:
         for epoch in range(self.epochs):
             batch_loss = []
 
-            for batch_idx, (data, labels) in enumerate(client_dataloader):
+            for batch_idx, (data, labels) in tqdm(enumerate(client_dataloader)):
 
                 if len(labels) < 1:
                     continue
