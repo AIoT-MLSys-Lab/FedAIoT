@@ -95,7 +95,17 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
         # new_dataset = [[original_data[i][0], original_data[i][1]] for i in range(len(new_dataset))]
         num_elements = len(original_data)
         num_elements_to_change = int(num_elements * error_label_ratio)
-        indices_to_change = random.sample(range(num_elements), num_elements_to_change)
+        # indices_to_change = random.sample(range(num_elements), num_elements_to_change)
+        indices = random.sample(range(num_elements), num_elements)
+        indices_to_change = []
+        for index in indices:
+            current_label_true = original_data[index][1]
+            change_prob = confusion_matrix[current_label_true]
+            if np.max(change_prob) < 0.80:
+                indices_to_change.append(index)
+            if len(indices_to_change) == num_elements_to_change:
+                break
+
         changed_indices = set()
         for index in indices_to_change:
             current_label = original_data[index][1]
