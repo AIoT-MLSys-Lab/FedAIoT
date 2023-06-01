@@ -54,7 +54,6 @@ class EpicSoundsRecord(object):
         self._index = str(tup[0])
         self._series = tup[1]
         self.sampling_rate = sampling_rate
-        self.preload = {}
 
     @property
     def participant(self):
@@ -104,6 +103,7 @@ class Epicsounds(torch.utils.data.Dataset):
 
         # self.audio_dataset = pickle.load(open(cfg.EPICSOUNDS.AUDIO_DATA_FILE, 'rb'))
         self.audio_dataset = None
+        self.preload = {}
         print("Constructing EPIC Sounds {}...".format(mode))
         self._construct_loader()
 
