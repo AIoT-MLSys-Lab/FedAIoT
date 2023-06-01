@@ -1,18 +1,20 @@
+import copy
+import random
+
 import numpy as np
+import torch
 import wandb
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
-import random
-import copy
 
 
 class NoisyDataset(Dataset):
     def __init__(self, data):
         self.data = data
-        self.targets = [label for _, label in data]
+        self.targets = copy.deepcopy(data.targets)
 
     def __getitem__(self, index):
-        return self.data[index]
+        return self.data[index][0], self.targets[index]
 
     def __len__(self):
         return len(self.data)
@@ -71,6 +73,7 @@ def inject_label_noise(client_datasets, class_num, error_ratio, error_var):
 
     return client_datasets_label_error, noise_percentages
 
+
 def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix, error_label_ratio):
     """
     Add label noise to client datasets and log noise percentages to wandb.
@@ -88,16 +91,20 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
 
     for original_data in client_datasets:
         new_dataset = copy.deepcopy(original_data)
+        new_dataset = NoisyDataset(new_dataset)
+        # new_dataset = [[original_data[i][0], original_data[i][1]] for i in range(len(new_dataset))]
         num_elements = len(original_data)
         num_elements_to_change = int(num_elements * error_label_ratio)
         indices_to_change = random.sample(range(num_elements), num_elements_to_change)
         changed_indices = set()
         for index in indices_to_change:
             current_label = original_data[index][1]
-            new_label = np.random.choice(class_num, p=confusion_matrix[current_label])
+            new_label = np.random.choice(class_num,
+                                         p=confusion_matrix[current_label] / sum(confusion_matrix[current_label]))
             while new_label == current_label or index in changed_indices:
-                new_label = np.random.choice(class_num, p=confusion_matrix[current_label])
-            new_dataset[index][1] = new_label
+                new_label = np.random.choice(class_num,
+                                             p=confusion_matrix[current_label] / sum(confusion_matrix[current_label]))
+            new_dataset.targets[index] = new_label
             changed_indices.add(index)
 
         original_labels = [sample[1] for sample in original_data]
@@ -143,4 +150,3 @@ def plot_noise_percentage(original_datasets, noisy_datasets, run):
 
     # Log the plot to wandb
     run.log({"label_noise_histogram": wandb.Image('label_noise_histogram.png')})
-
