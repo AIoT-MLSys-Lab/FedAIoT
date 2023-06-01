@@ -220,11 +220,12 @@ class BaseTrainer:
     def step_low_precision(self, client_idx, client_data, round_idx, precision='float32', device='cuda'):
         # client_data = IndexedSubset(dataset=ray.get(client_data['dataset']),
         #                             indices=ray.get(client_data['indices']))
+        batch_size = self.batch_size
         if len(client_data) < self.batch_size:
-            self.batch_size = len(client_data)
+            batch_size = len(client_data)
         weight = len(client_data)
         client_dataloader = create_dataloader(dataset=client_data,
-                                              batch_size=self.batch_size,
+                                              batch_size=batch_size,
                                               shuffle=self.shuffle,
                                               pin_memory=self.pin_memory,
                                               num_workers=4)
