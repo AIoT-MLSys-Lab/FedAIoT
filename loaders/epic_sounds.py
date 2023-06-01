@@ -54,6 +54,7 @@ class EpicSoundsRecord(object):
         self._index = str(tup[0])
         self._series = tup[1]
         self.sampling_rate = sampling_rate
+        self.preload = {}
 
     @property
     def participant(self):
@@ -161,6 +162,8 @@ class Epicsounds(torch.utils.data.Dataset):
                 decoded, then return the index of the video. If not, return the
                 index of the video replacement that can be decoded.
         """
+        if index in self.preload.keys():
+            return self.preload[index]
         if self.audio_dataset is None:
             self.audio_dataset = h5py.File("datasets/epic_sounds/EPIC_audio.hdf5", 'r')
 
@@ -191,7 +194,7 @@ class Epicsounds(torch.utils.data.Dataset):
         # metadata = {
         #     "annotation_id": self._video_records[index].annotation_id
         # }
-
+        self.preload[index] = (spectrogram, label)
         return spectrogram, label
 
     def __len__(self):
