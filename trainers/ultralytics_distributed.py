@@ -170,6 +170,10 @@ class UltralyticsYoloTrainer:
 
         for i, batch in tqdm(enumerate(client_dataloader), total=len(client_dataloader)):
             batch = self.preprocess_batch(batch, device)
+            if precision == 'float16':
+                batch['img'] = batch['img'].half()  # convert to half precision
+            if precision == 'float64':
+                batch['img'] = batch['img'].double()  # convert to double precision
             preds = model(batch['img'])
             loss, loss_items = self.criterion(preds, batch)
             tloss = (tloss * i + loss_items) / (i + 1) if tloss is not None \
@@ -177,7 +181,7 @@ class UltralyticsYoloTrainer:
 
             # Backward
             loss.backward()
-            self.optimizer_step()
+            self.optimizer_step_with_precision()
             torch.cuda.empty_cache()
         return tloss.cpu().numpy()
 
@@ -186,6 +190,13 @@ class UltralyticsYoloTrainer:
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)  # clip gradients
         self.scaler.step(self.optimizer)
         self.scaler.update()
+        self.optimizer.zero_grad()
+
+    def optimizer_step_with_precision(self):
+        # self.scaler.unscale_(self.optimizer)  # unscale gradients
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)  # clip gradients
+        self.optimizer.step()
+        # self.scaler.update()
         self.optimizer.zero_grad()
 
     def preprocess_batch(self, batch, device):
