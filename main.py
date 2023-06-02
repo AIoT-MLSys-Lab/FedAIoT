@@ -7,6 +7,7 @@ from pathlib import Path
 import fire
 import numpy as np
 import pandas as pd
+import ray
 from tqdm import tqdm
 
 import wandb
@@ -14,8 +15,8 @@ from aggregators.base import FederatedAveraging
 from loaders.utils import get_confusion_matrix_plot
 from models.ut_har import *
 from models.utils import load_model
-from strategies.base_fl import distributed_fedavg, basic_fedavg
-from trainers.distributed_base import BaseTrainer
+from strategies.base_fl import basic_fedavg
+from trainers.distributed_base import DistributedTrainer, BaseTrainer
 from trainers.ultralytics_distributed import DistributedUltralyticsYoloTrainer
 from utils import WarmupScheduler, read_system_variable, get_default_yolo_hyperparameters, set_seed, load_dataset, \
     get_partition, plot_data_distributions, add_label_noise, plot_noise_distribution
@@ -32,9 +33,8 @@ num_gpus, num_trainers_per_gpu = read_system_variable(system_config)
 
 YOLO_HYPERPARAMETERS = get_default_yolo_hyperparameters()
 
-
-#
-# ray.init(num_gpus=num_gpus)
+ray.init(ignore_reinit_error=True, num_cpus=num_gpus * num_trainers_per_gpu + 5, num_gpus=num_gpus)
+print("success")
 
 
 class Experiment:
@@ -70,7 +70,7 @@ class Experiment:
              watch_metric: str = run_config['DEFAULT'].get('watch_metric', 'f1_score'),
              seed: int = 1,
              milestones: list[int] = None,
-             resume: bool = False
+             resume: str = ""
              ):
         """
         :param model: neural network used in training
@@ -138,11 +138,15 @@ class Experiment:
             client_datasets, noise_percentages = add_label_noise(analysis, dataset_name, client_datasets, num_classes)
             plot_noise_distribution(noise_percentages)
 
-        data_ref = (dataset['train'])
+        print('Saving dataset in object store')
+        data_ref = dataset['train']
+        print('Saving client indices in object store')
         client_dataset_refs = [client_dataset for client_dataset in
-                               client_datasets]
+                               tqdm(client_datasets)]
 
         global_model = load_model(model_name=model, trainer=trainer, dataset_name=dataset_name)
+        if resume != "" and Path(f'weights/{resume}/best_model.pt').exists():
+            global_model.load_state_dict(torch.load(f'weights/{resume}/best_model.pt'))
         global_model = global_model.cpu()
 
         if trainer == 'BaseTrainer':

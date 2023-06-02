@@ -90,7 +90,7 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
     noise_percentages = []
 
     for original_data in client_datasets:
-        new_dataset = copy.deepcopy(original_data)
+        new_dataset = original_data
         new_dataset = NoisyDataset(new_dataset)
         # new_dataset = [[original_data[i][0], original_data[i][1]] for i in range(len(new_dataset))]
         num_elements = len(original_data)
