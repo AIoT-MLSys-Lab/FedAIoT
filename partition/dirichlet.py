@@ -55,6 +55,21 @@ class DirichletPartition:
                 ]
             min_size = min([len(idx_j) for idx_j in idx_batch])
 
+        # Redistribution loop
+        it = 0
+        while min_size < self.minimum_data_size and it < self.max_iter:
+            # Find client with minimum and maximum samples
+            min_samples_client = min(idx_batch, key=len)
+            max_samples_client = max(idx_batch, key=len)
+            # Get count of samples needed to reach minimum_data_size
+            transfer_samples_count = self.minimum_data_size - len(min_samples_client)
+            # Transfer samples from max_samples_client to min_samples_client
+            min_samples_client.extend(max_samples_client[-transfer_samples_count:])
+            del max_samples_client[-transfer_samples_count:]
+            # Recalculate min_size
+            min_size = min([len(idx_j) for idx_j in idx_batch])
+            it += 1
+
         for j in range(self.num_clients):
             np.random.shuffle(idx_batch[j])
             net_dataidx_map[j] = idx_batch[j]
