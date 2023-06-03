@@ -2,10 +2,10 @@ import copy
 import random
 
 import numpy as np
-import torch
 import wandb
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
+from tqdm import tqdm
 
 
 class NoisyDataset(Dataset):
@@ -89,7 +89,7 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
     client_datasets_label_error = []
     noise_percentages = []
 
-    for original_data in client_datasets:
+    for original_data in tqdm(client_datasets, total=len(client_datasets)):
         new_dataset = original_data
         new_dataset = NoisyDataset(new_dataset)
         # new_dataset = [[original_data[i][0], original_data[i][1]] for i in range(len(new_dataset))]
@@ -124,6 +124,7 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
         client_datasets_label_error.append(new_dataset)
 
     return client_datasets_label_error, noise_percentages
+
 
 def plot_noise_percentage(original_datasets, noisy_datasets, run):
     """
