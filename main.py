@@ -7,7 +7,7 @@ from pathlib import Path
 import fire
 import numpy as np
 import pandas as pd
-import ray
+# import ray
 from tqdm import tqdm
 
 import wandb
@@ -33,7 +33,7 @@ num_gpus, num_trainers_per_gpu = read_system_variable(system_config)
 
 YOLO_HYPERPARAMETERS = get_default_yolo_hyperparameters()
 
-ray.init(ignore_reinit_error=True, num_cpus=num_gpus * num_trainers_per_gpu + 5, num_gpus=num_gpus)
+# ray.init(ignore_reinit_error=True, num_cpus=num_gpus * num_trainers_per_gpu + 5, num_gpus=num_gpus)
 print("success")
 
 
