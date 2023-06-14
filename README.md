@@ -56,7 +56,7 @@ The loader will also return a `split` containing the client mapping for `train` 
 When loading make sure to specify the classes:
 
 ```python
-        if dataset_name == 'cifar10':
+if dataset_name == 'cifar10':
     dataset = loaders.cifar10.load_raw_data()
     num_classes = 10
 elif dataset_name == 'wisdm':
