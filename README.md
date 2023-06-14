@@ -106,7 +106,6 @@ The following federated learning algorithms are supported:
 
 - FedAvg
 - FedAdam
-- FedAdaGrad
 - Any combination of PyTorch optimizers at the client and server side
 
 
