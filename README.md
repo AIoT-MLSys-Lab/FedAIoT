@@ -6,11 +6,13 @@ federated learning algorithms.
 ## Table of Contents
 1. [Requirements](#requirements)
 2. [Datasets](#datasets)
-3. [Loaders](#loaders)
-4. [Partitioners](#partition)
-5. [Models](#models)
-6. [Training](#training)
-7. [Usage](#usage)
+
+[//]: # (3. [Loaders]&#40;#loaders&#41;)
+3. [Partitioners](#partition)
+
+[//]: # (5. [Models]&#40;#models&#41;)
+4. [Training](#training)
+5. [Usage](#usage)
 
 ## Requirements
 
@@ -82,10 +84,12 @@ distribution.
 For more implementation as has been used in code [See here](https://github.com/AIoT-MLSys-Lab/FedAIoT/blob/61d8147d56f7ef4ea04d43a708f4de523f9e36bc/distributed_main.py#L129-L145)
 
 
-## Models
+[//]: # (## Models)
 
-The experiment supports various models and allows you to use custom models as well. See the models directory for the 
-individual implementations of the models for the respective datasets.
+[//]: # ()
+[//]: # (The experiment supports various models and allows you to use custom models as well. See the models directory for the )
+
+[//]: # (individual implementations of the models for the respective datasets.)
 
 ## Training
 
