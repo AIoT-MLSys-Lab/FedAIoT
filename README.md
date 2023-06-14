@@ -15,7 +15,7 @@ pip install -r requirements.txt
 ```
 ## Datasets
 
-The implemented federated learning experiment supports the following datasets:
+The FedAIoT benchmark includes the following datasets:
 
 - WISDM
 - UT HAR
