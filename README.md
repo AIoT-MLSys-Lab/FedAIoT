@@ -65,13 +65,10 @@ elif dataset_name == 'ut_har':
 ```
 [See here](https://github.com/AIoT-MLSys-Lab/FedAIoT/blob/61d8147d56f7ef4ea04d43a708f4de523f9e36bc/distributed_main.py#L111-L126)
 
-## Partition
+## Non-IID Partition Scheme
 The partition classes split a large dataset into a list of smaller datasets. Several Partition methods are implemented. 
 1. Centralized essentially returns the original dataset as a list of one dataset.
-2. User partitions the dataset based on the client mapping. The client mapping is a dictionary returned from the 
-   corresponding dataset loader or a custom mapping created manually.
-3. Uniform partitions the dataset into a specified number of clients with IID distribution.
-4. Dirichlet partitions the dataset into a specified number of clients with non-IID dirichlet distribution.
+2. Dirichlet partitions the dataset into a specified number of clients with non-IID dirichlet distribution.
 
 Create a partition object and use that to prtition any centralized dataset. Using the same partition on two 
 different data splits will result in the same distribution of data between clients. For example:
