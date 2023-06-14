@@ -78,7 +78,6 @@ different data splits will result in the same distribution of data between clien
 ```python
     partition = DirichletPartition(num_clients=10)
     train_partition = partition(dataset['train'])
-    test_partition = partition(dataset['test'])
 ```
 Here `train_partition` and `test_partition` will have `10` clients with the same relative class and sample  
 distribution.
