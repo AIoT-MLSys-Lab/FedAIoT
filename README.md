@@ -104,11 +104,6 @@ To run train a federated model with WISDM-W with FedAvg and `10%` client samplin
 num_gpus=1 num_trainers_per_gpu=1 CUDA_VISIBLE_DEVICES=0 python distributed_main.py main --dataset_name wisdm_watch --model LSTM_NET --client_num_in_total 80 --client_num_per_round 8 --partition_type dirichlet --alpha 0.1 --lr 0.01 --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 400 --batch_size 32 --analysis baseline --trainer BaseTrainer --amp --watch_metric accuracy
 ```
 
-You can also pass the required parameters when running the script. For example:
-
-```
-python distributed_main.py main --model=models/resnet_group_norm.pt --dataset_name=cifar10 --client_num_per_round=10 --comm_round=30
-```
 For the full list of parameters, run:
 ```
 python distributed_main.py main --help
