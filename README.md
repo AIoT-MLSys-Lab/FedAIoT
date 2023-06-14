@@ -102,11 +102,10 @@ The basic federated learning algorithm is implemented in the `algorithm.base_fl`
 aggregator module), `client_trainers` (ray actors for distributed training), `client_dataset_refs` (ray data 
 references), `client_num_per_round` (Number of clients sampled per round; < total clients), `global_model`, `round_idx`, 
 `scheduler`, `device` (cpu or gpu), it runs one round of federated learning following vanilla fed avg.
-The following federated learning algorithms are supported:
+The following federated learning algorithms are included in the benchmark:
 
 - FedAvg
 - FedAdam
-- Any combination of PyTorch optimizers at the client and server side
 
 
 Various training options and hyperparameters can be configured, such as the optimizer, learning rate, weight decay, epochs, and more.
