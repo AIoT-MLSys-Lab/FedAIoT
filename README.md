@@ -16,15 +16,6 @@ federated learning algorithms.
 
 Make sure to have the following dependencies installed:
 
-- Python 3.10 or higher
-- PyTorch
-- NumPy
-- Ray
-- Fire
-- WandB
-- Ultralytics
-- ...
-- 
 For a full list see requirements.txt. Run:
 ```bash
 pip install -r requirements.txt
