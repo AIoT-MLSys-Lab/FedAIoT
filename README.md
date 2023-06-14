@@ -14,9 +14,6 @@ federated learning algorithms.
 
 ## Requirements
 
-Make sure to have the following dependencies installed:
-
-For a full list see requirements.txt. Run:
 ```bash
 pip install -r requirements.txt
 ```
