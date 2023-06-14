@@ -1,9 +1,14 @@
 import torch
-import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
-from einops import rearrange, reduce, repeat
+from einops import rearrange, repeat
 from einops.layers.torch import Rearrange, Reduce
+from torchinfo import summary
+
+from models.widar import ResNetCustomNorm
+
+
+# from torchsummary import summary
 
 
 class UT_HAR_MLP(nn.Module):
@@ -58,13 +63,13 @@ class Bottleneck(nn.Module):
         super(Bottleneck, self).__init__()
 
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
-        self.batch_norm1 = nn.BatchNorm2d(out_channels)
+        self.batch_norm1 = nn.GroupNorm(2, out_channels)
 
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1)
-        self.batch_norm2 = nn.BatchNorm2d(out_channels)
+        self.batch_norm2 = nn.nn.GroupNorm(2, out_channels)
 
         self.conv3 = nn.Conv2d(out_channels, out_channels * self.expansion, kernel_size=1, stride=1, padding=0)
-        self.batch_norm3 = nn.BatchNorm2d(out_channels * self.expansion)
+        self.batch_norm3 = nn.GroupNorm(2, out_channels * self.expansion)
 
         self.i_downsample = i_downsample
         self.stride = stride
@@ -91,9 +96,9 @@ class Block(nn.Module):
         super(Block, self).__init__()
 
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, stride=1, bias=False)
-        self.batch_norm1 = nn.BatchNorm2d(out_channels)
+        self.batch_norm1 = nn.GroupNorm(2, out_channels)
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, stride=stride, bias=False)
-        self.batch_norm2 = nn.BatchNorm2d(out_channels)
+        self.batch_norm2 = nn.GroupNorm(2, out_channels)
 
         self.i_downsample = i_downsample
         self.stride = stride
@@ -125,7 +130,7 @@ class UT_HAR_ResNet(nn.Module):
         self.in_channels = 64
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.batch_norm1 = nn.BatchNorm2d(64)
+        self.batch_norm1 =  nn.GroupNorm(2, 64)
         self.relu = nn.ReLU()
         self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
@@ -158,7 +163,7 @@ class UT_HAR_ResNet(nn.Module):
         if stride != 1 or self.in_channels != planes * ResBlock.expansion:
             ii_downsample = nn.Sequential(
                 nn.Conv2d(self.in_channels, planes * ResBlock.expansion, kernel_size=1, stride=stride),
-                nn.BatchNorm2d(planes * ResBlock.expansion)
+                nn.GroupNorm(2, planes * ResBlock.expansion)
             )
 
         layers.append(ResBlock(self.in_channels, planes, i_downsample=ii_downsample, stride=stride))
@@ -393,8 +398,53 @@ class UT_HAR_ViT(nn.Sequential):
 
 
 if __name__ == '__main__':
-    model = UT_HAR_RNN()
-    print(model)
-    x = torch.randn(3, 3, 250, 30)
-    print(model(x).shape)
-    torch.save(model, 'models/ut_har_resnet_18.pt')
+    model = UT_HAR_ResNet18()
+    x = torch.randn(32, 1, 250, 90)
+    s = summary(model, input_size=x.shape)
+    input_text = str(s)
+    model_name = 'UT_HAR_ResNet18'
+
+    # Split the text into lines
+    lines = input_text.split("\n")
+
+    # Open the LaTeX file for writing
+    with open('model_architecture.tex', 'w') as f:
+
+        # Write the preamble
+        f.write("\\begin{table}[h]\n")
+        f.write("\\centering\n")
+        f.write("\\caption{Model Architecture}\n")
+        f.write("\\label{tab:model_architecture}\n")
+        f.write("\\resizebox{0.5\\textwidth}{!}{\n")
+        f.write("\\begin{tabular}{lll}\n")
+
+        # Iterate through the lines
+        for line in lines:
+            parts = line.split('         ')
+            parts = [part.replace('#', '\#').replace('_', '-') for part in parts if part != '']
+            if not parts:
+                continue
+            print(f'{len(parts)}:=>{parts}')
+            # '├─Sequential: 1-1'
+            if len(parts) == 1:
+                if '==' in parts[0]:
+                    f.write("\\hline\n")
+                else:
+                    part = parts[0]
+                    parts = part.split(':')
+                    f.write(f"{parts[0]} & & {parts[-1]}" + " \\\\ \n")
+            else:  # This line is part of the hierarchy
+                init_space = ''
+                # if '│' in parts[0] or '├─' in parts[0] or '└─' in parts[0]:
+                # init_space = '\\hspace{2mm}'
+                # parts[0] = parts[0].replace("└─", '\\hspace{2mm}\\rule[2pt]{0.4pt}{6pt} --- ')
+                parts[0] = parts[0].replace('│', "\\hspace{2mm}\\vline").replace('├─', '\\hspace{2mm}\\vline --- ')
+                parts[0] = parts[0].replace("└─", '\\hspace{2mm}\\vline --- ')
+
+                parts[0] = parts[0].replace('    ', '\\hspace{3mm}')
+                f.write(init_space + " & ".join(parts) + " \\\\ \n")
+
+        # Write the ending
+        # f.write("\\hline\n")
+        f.write("\\end{tabular}}\n")
+        f.write("\\end{table}\n")
