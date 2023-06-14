@@ -33,11 +33,13 @@ pip install -r requirements.txt
 
 The implemented federated learning experiment supports the following datasets:
 
-- CIFAR-10
 - WISDM
+- UT HAR
 - WIDAR
 - VisDrone
-- UT HAR
+- CASAS
+- AEP
+- EPIC-SOUNDS
 
 Each dataset folder contains the `download.py` script to download the dataset.
 
