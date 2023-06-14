@@ -43,7 +43,7 @@ different data splits will result in the same distribution of data between clien
 Here `train_partition` and `test_partition` will have `10` clients with the same relative class and sample  
 distribution.
 
-For more implementation as has been used in code [See here](https://github.com/AIoT-MLSys-Lab/FedAIoT/blob/61d8147d56f7ef4ea04d43a708f4de523f9e36bc/distributed_main.py#L129-L145)
+For more details on implementation: [See here](https://github.com/AIoT-MLSys-Lab/FedAIoT/blob/61d8147d56f7ef4ea04d43a708f4de523f9e36bc/distributed_main.py#L129-L145)
 
 
 [//]: # (## Models)
