@@ -6,11 +6,7 @@ federated learning algorithms.
 ## Table of Contents
 1. [Requirements](#requirements)
 2. [Datasets](#datasets)
-
-[//]: # (3. [Loaders]&#40;#loaders&#41;)
 3. [Partitioners](#partition)
-
-[//]: # (5. [Models]&#40;#models&#41;)
 4. [Training](#training)
 5. [Usage](#usage)
 
@@ -32,40 +28,6 @@ The implemented federated learning experiment supports the following datasets:
 - EPIC-SOUNDS
 
 Each dataset folder contains the `download.py` script to download the dataset.
-
-## Loaders
-Each dataset also comes with their own loaders. Based on the nature of the dataset, the loaders return a `dict` with 
-specific keys. 
-
-If the dataset has partitions for `train`, `test`, and `validation`, the loader will return the data from the respective 
-partitions as PyTorch Datasets. If the dataset does not have partitions, the loader will split the data into `train`, 
-`test` and `validation` partitions. In the latter case the loader will also return a `full_dataset` containing the full 
-data.
-
-If the samples in the dataset are mapped to subjects/users/clients/etc, the loaders will return a `client_mapping`. 
-The loader will also return a `split` containing the client mapping for `train` and `test` partition if present.
-
-When loading make sure to specify the classes:
-
-```python
-if dataset_name == 'cifar10':
-    dataset = loaders.cifar10.load_raw_data()
-    num_classes = 10
-elif dataset_name == 'wisdm':
-    LSTM_NET
-    dataset = loaders.wisdm.load_raw_data(reprocess=False)
-    num_classes = 12
-elif dataset_name == 'widar':
-    dataset = loaders.widar.load_raw_data()
-    num_classes = 9
-elif dataset_name == 'visdrone':
-    dataset = loaders.visdrone.load_raw_data()
-    num_classes = 12
-elif dataset_name == 'ut_har':
-    dataset = loaders.ut_har.load_raw_data()
-    num_classes = 7
-```
-[See here](https://github.com/AIoT-MLSys-Lab/FedAIoT/blob/61d8147d56f7ef4ea04d43a708f4de523f9e36bc/distributed_main.py#L111-L126)
 
 ## Non-IID Partition Scheme
 The partition classes split a large dataset into a list of smaller datasets. Several Partition methods are implemented. 
