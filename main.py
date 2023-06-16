@@ -16,8 +16,8 @@ from loaders.utils import get_confusion_matrix_plot
 from models.ut_har import *
 from models.utils import load_model
 from strategies.base_fl import basic_fedavg
-from trainers.distributed_base import DistributedTrainer, BaseTrainer
-from trainers.ultralytics_distributed import DistributedUltralyticsYoloTrainer
+from trainers.distributed_base import BaseTrainer
+from trainers.ultralytics_distributed import UltralyticsYoloTrainer
 from utils import WarmupScheduler, read_system_variable, get_default_yolo_hyperparameters, set_seed, load_dataset, \
     get_partition, plot_data_distributions, add_label_noise, plot_noise_distribution
 
@@ -187,7 +187,7 @@ class Experiment:
             scheduler = WarmupScheduler(optimizer, warmup_epochs=3, scheduler=base_scheduler)
             global_model.args = YOLO_HYPERPARAMETERS
             from scorers.ultralytics_yolo_evaluator import evaluate
-            client_trainers = [DistributedUltralyticsYoloTrainer.remote(
+            client_trainers = [UltralyticsYoloTrainer(
                 model_path=model,
                 state_dict=global_model.state_dict(),
                 optimizer_name=client_optimizer,
