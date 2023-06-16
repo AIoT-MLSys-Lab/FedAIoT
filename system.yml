@@ -2,3 +2,4 @@
 num_gpus = 2
 num_trainers_per_gpu = 1
 CUDA_VISIBLE_DEVICES=1,2
+seed = 1

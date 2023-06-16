@@ -5,8 +5,6 @@ from einops import rearrange, repeat
 from einops.layers.torch import Rearrange, Reduce
 from torchinfo import summary
 
-from models.widar import ResNetCustomNorm
-
 
 # from torchsummary import summary
 
@@ -130,7 +128,7 @@ class UT_HAR_ResNet(nn.Module):
         self.in_channels = 64
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.batch_norm1 =  nn.GroupNorm(2, 64)
+        self.batch_norm1 = nn.GroupNorm(2, 64)
         self.relu = nn.ReLU()
         self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 

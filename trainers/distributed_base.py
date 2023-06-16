@@ -1,6 +1,5 @@
 import configparser
 import logging
-import os
 import warnings
 
 import numpy as np
@@ -13,14 +12,13 @@ from tqdm import tqdm
 
 from aggregators.torchcomponentrepository import TorchComponentRepository
 from models.utils import load_model
-from utils import WarmupScheduler
+from utils import read_system_variable, set_seed, WarmupScheduler
 
 system_config = configparser.ConfigParser()
 system_config.read('system.yml')
-num_gpus = int(os.environ['num_gpus']) if 'num_gpus' in os.environ else system_config['DEFAULT'].getint('num_gpus', 1)
-num_trainers_per_gpu = int(os.environ['num_trainers_per_gpu']) if 'num_gpus' in os.environ else system_config[
-    'DEFAULT'].getint(
-    'num_trainers_per_gpu', 1)
+num_gpus, num_trainers_per_gpu, seed = read_system_variable(system_config)
+print(f'Seed is {seed}')
+set_seed(seed)
 
 
 def mixup_data(x, y, alpha=1.0):

@@ -8,7 +8,6 @@ import fire
 import numpy as np
 import pandas as pd
 import ray
-import torch
 from tqdm import tqdm
 
 import wandb
@@ -30,11 +29,13 @@ run_config = configparser.ConfigParser()
 run_config.read('config.yml')
 system_config.read('system.yml')
 
-num_gpus, num_trainers_per_gpu = read_system_variable(system_config)
-
+num_gpus, num_trainers_per_gpu, seed = read_system_variable(system_config)
+set_seed(seed)
+print(f'Seed is {seed}')
 YOLO_HYPERPARAMETERS = get_default_yolo_hyperparameters()
 
-ray.init(ignore_reinit_error=True, num_cpus=num_gpus*num_trainers_per_gpu+5, num_gpus=num_gpus)
+
+ray.init(ignore_reinit_error=True, num_cpus=num_gpus * num_trainers_per_gpu + 5, num_gpus=num_gpus)
 print("success")
 
 
@@ -69,7 +70,6 @@ class Experiment:
              class_mixup: float = run_config['DEFAULT'].getfloat('class_mixup', 1),
              precision: str = run_config['DEFAULT'].get('precision', 'float32'),
              watch_metric: str = run_config['DEFAULT'].get('watch_metric', 'f1_score'),
-             seed: int = 1,
              milestones: list[int] = None,
              resume: str = ""
              ):
@@ -109,7 +109,6 @@ class Experiment:
         args.pop('self')
 
         device = run_config['DEFAULT']['device']
-        set_seed(1)
 
         dataset, num_classes = load_dataset(dataset_name)
         partition, client_num_in_total, client_num_per_round = get_partition(partition_type,

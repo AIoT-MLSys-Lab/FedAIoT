@@ -28,12 +28,13 @@ from partition.utils import compute_client_data_distribution, get_html_plots
 
 
 def read_system_variable(system_config, ):
-    num_gpus = int(os.environ['num_gpus']) if 'num_gpus' in os.environ else system_config['DEFAULT'].getint('num_gpus',
-                                                                                                            1)
-    num_trainers_per_gpu = int(os.environ['num_trainers_per_gpu']) if 'num_gpus' in os.environ else system_config[
-        'DEFAULT'].getint(
-        'num_trainers_per_gpu', 1)
-    return num_gpus, num_trainers_per_gpu
+    num_gpus = int(os.environ['num_gpus']) if 'num_gpus' in os.environ \
+        else system_config['DEFAULT'].getint('num_gpus', 1)
+    num_trainers_per_gpu = int(os.environ['num_trainers_per_gpu']) if 'num_gpus' in os.environ \
+        else system_config['DEFAULT'].getint('num_trainers_per_gpu', 1)
+    seed = int(os.environ['seed']) if 'seed' in os.environ \
+        else system_config['DEFAULT'].getint('seed', 1)
+    return num_gpus, num_trainers_per_gpu, seed
 
 
 class WarmupScheduler(LRScheduler):
