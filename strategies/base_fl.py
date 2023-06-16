@@ -1,5 +1,6 @@
 import numpy as np
 import ray
+import torch
 from tqdm import tqdm
 
 
@@ -56,7 +57,7 @@ def distributed_fedavg(aggregator,
                 all_updates.append(u)
                 all_weights.append(n)
                 all_local_metrics.append(l)
-        # torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
     # Calculate the average local metrics
     local_metrics_avg = {key: sum(metric[key] for metric in all_local_metrics if metric[key]) / len(all_local_metrics)
