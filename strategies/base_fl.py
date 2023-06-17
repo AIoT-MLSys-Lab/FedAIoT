@@ -123,17 +123,17 @@ def basic_fedavg(aggregator,
         updates, num_client_samples, local_metrics = zip(*remote_steps)
 
         # Add the results to the overall lists
-        all_updates.extend(updates)
-        all_weights.extend(num_client_samples)
-        all_local_metrics.extend(local_metrics)
-        # torch.cuda.empty_cache()
+        for u, n, l in zip(updates, num_client_samples, local_metrics):
+            if n > 0:
+                all_updates.append(u)
+                all_weights.append(n)
+                all_local_metrics.append(l)
+        torch.cuda.empty_cache()
 
     # Calculate the average local metrics
     local_metrics_avg = {key: sum(metric[key] for metric in all_local_metrics if metric[key]) / len(all_local_metrics)
                          for key in all_local_metrics[0]}
-    for m in all_local_metrics:
-        if m['Local Loss'] == 0 or np.isnan(m['Local Loss']):
-            break
+
     print(all_local_metrics)
 
     # Update the global model using the aggregator
