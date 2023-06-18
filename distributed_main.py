@@ -109,7 +109,6 @@ class Experiment:
         args.pop('self')
 
         device = run_config['DEFAULT']['device']
-        wandb.config['seed'] = seed
 
         dataset, num_classes = load_dataset(dataset_name)
         partition, client_num_in_total, client_num_per_round = get_partition(partition_type,
@@ -131,6 +130,7 @@ class Experiment:
         )
         wandb.config['num_samples'] = len(dataset['train'])
         client_datasets = partition(dataset['train'])
+        wandb.config['seed'] = seed
         partition_name = partition_type if partition_type != 'dirichlet' else f'{partition_type}_{alpha}'
         plot_data_distributions(dataset, dataset_name, client_datasets, num_classes)
 
