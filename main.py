@@ -108,6 +108,7 @@ class Experiment:
         args.pop('self')
 
         device = run_config['DEFAULT']['device']
+        wandb.config['seed'] = seed
 
         dataset, num_classes = load_dataset(dataset_name)
         partition, client_num_in_total, client_num_per_round = get_partition(partition_type,
