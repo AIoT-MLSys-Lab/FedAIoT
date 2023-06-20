@@ -1,3 +1,6 @@
+#!/bin/bash
+
+python datasets/energy/download.py
 client_lr=0.001
 for seed in {1..3}
 do

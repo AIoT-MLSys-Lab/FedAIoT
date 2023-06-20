@@ -1,5 +1,7 @@
-client_lr = 0.01
+#!/bin/bash
+
 python datasets/wisdm/download.py
+client_lr=0.01
 ## 1. wisdm phone
 ### Centralized
 seed=1 num_gpus=1 num_trainers_per_gpu=8 python distributed_main.py main --dataset_name wisdm_phone --model LSTM_NET --client_num_in_total 1 --client_num_per_round 1 --partition_type central --alpha 0.1 --lr $client_lr --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 200 --batch_size 128 --analysis baseline --trainer BaseTrainer --amp --watch_metric accuracy
