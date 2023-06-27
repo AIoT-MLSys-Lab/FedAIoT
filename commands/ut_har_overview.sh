@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-client_lr=0.01
+client_lr=0.0001
 for seed in {1..3}
 do
     ## 4. ut_har
