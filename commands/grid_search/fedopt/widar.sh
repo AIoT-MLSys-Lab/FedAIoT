@@ -9,4 +9,3 @@ do
     num_gpus=1 num_trainers_per_gpu=4 python distributed_main.py main  --dataset_name widar --model Widar_ResNet18  --client_num_in_total 40 --client_num_per_round 4 --partition_type dirichlet --alpha 0.5 --lr $client_lr --server_optimizer adam --server_lr $server_lr --test_frequency 5 --comm_round 300 --batch_size 32 --analysis baseline --trainer BaseTrainer --amp --watch_metric accuracy
   done
 done
-done

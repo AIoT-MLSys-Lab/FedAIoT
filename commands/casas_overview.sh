@@ -1,6 +1,6 @@
 #!/bin/bash
 
-python datasets/casas/download.py
+
 client_lr=0.01
 for seed in {1..3}
 do

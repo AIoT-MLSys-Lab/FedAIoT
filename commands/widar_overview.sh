@@ -1,6 +1,5 @@
 #!/bin/bash
 
-python datasets/widar/download.py
 client_lr=0.01
 for seed in {1..3}
 do

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-python datasets/wisdm/download.py
 client_lr=0.01
 ## 1. wisdm phone
 ### Centralized
