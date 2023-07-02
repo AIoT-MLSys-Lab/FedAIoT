@@ -127,7 +127,7 @@ class BaseTrainer:
         self.optimizer = TorchComponentRepository.get_class_by_name(self.optimizer_name, torch.optim.Optimizer)(
             self.model.parameters(),
             lr=self.lr,
-            momentum=0.9,
+            # momentum=0.9,
             weight_decay=5e-4,
         )
         # print(TorchRepo.name2cls("linearlr", torch.optim.lr_scheduler.LRScheduler))
@@ -324,7 +324,7 @@ class BaseTrainer:
         return local_update_state, weight, local_metrics
 
 
-@ray.remote(num_gpus=1.0 / num_trainers_per_gpu)
+@ray.remote(num_gpus=1.0 / num_trainers_per_gpu,)
 class DistributedTrainer(BaseTrainer):
     def __init__(self, model_name: str,
                  dataset_name: str,
