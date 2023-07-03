@@ -1,4 +1,4 @@
-lrs=(0.1 0.01 0.001 0.0001)
+lrs=(0.01 0.001 0.0001)
 for client_lr in "${lrs[@]}"
 do
   for server_lr in "${lrs[@]}"
