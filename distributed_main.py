@@ -8,6 +8,7 @@ import fire
 import numpy as np
 import pandas as pd
 import ray
+import torch.cuda
 from tqdm import tqdm
 
 import wandb
@@ -214,6 +215,7 @@ class Experiment:
             if round_idx % test_frequency == 0 and round_idx > 0:
                 metrics = evaluate(global_model, dataset['test'], device=device, num_classes=num_classes,
                                    batch_size=batch_size)
+                torch.cuda.empty_cache()
                 v = metrics.get(watch_metric)
                 if isinstance(v, torch.Tensor):
                     v = v.numpy()
