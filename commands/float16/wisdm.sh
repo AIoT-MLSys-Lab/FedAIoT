@@ -1,0 +1,12 @@
+#!/bin/bash
+
+client_lr=0.01
+## 1. wisdm phone
+### NIID-0.1 SGD 10%-30%
+seed=1 num_gpus=1 num_trainers_per_gpu=8 python distributed_main.py main --dataset_name wisdm_phone --model LSTM_NET --client_num_in_total 80 --client_num_per_round 8 --partition_type dirichlet --alpha 0.1 --lr $client_lr --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 400 --batch_size 32 --analysis baseline --trainer BaseTrainer --precision float16 --watch_metric accuracy
+seed=2 num_gpus=1 num_trainers_per_gpu=8 python distributed_main.py main --dataset_name wisdm_phone --model LSTM_NET --client_num_in_total 80 --client_num_per_round 8 --partition_type dirichlet --alpha 0.1 --lr $client_lr --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 400 --batch_size 32 --analysis baseline --trainer BaseTrainer --precision float16 --watch_metric accuracy
+seed=3 num_gpus=1 num_trainers_per_gpu=8 python distributed_main.py main --dataset_name wisdm_phone --model LSTM_NET --client_num_in_total 80 --client_num_per_round 8 --partition_type dirichlet --alpha 0.1 --lr $client_lr --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 400 --batch_size 32 --analysis baseline --trainer BaseTrainer --precision float16 --watch_metric accuracy
+
+seed=1 num_gpus=1 num_trainers_per_gpu=8 python distributed_main.py main --dataset_name wisdm_watch --model LSTM_NET --client_num_in_total 80 --client_num_per_round 8 --partition_type dirichlet --alpha 0.1 --lr $client_lr --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 400 --batch_size 32 --analysis baseline --trainer BaseTrainer --precision float16 --watch_metric accuracy
+seed=2 num_gpus=1 num_trainers_per_gpu=8 python distributed_main.py main --dataset_name wisdm_watch --model LSTM_NET --client_num_in_total 80 --client_num_per_round 8 --partition_type dirichlet --alpha 0.1 --lr $client_lr --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 400 --batch_size 32 --analysis baseline --trainer BaseTrainer --precision float16 --watch_metric accuracy
+seed=3 num_gpus=1 num_trainers_per_gpu=8 python distributed_main.py main --dataset_name wisdm_watch --model LSTM_NET --client_num_in_total 80 --client_num_per_round 8 --partition_type dirichlet --alpha 0.1 --lr $client_lr --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 400 --batch_size 32 --analysis baseline --trainer BaseTrainer --precision float16 --watch_metric accuracy
