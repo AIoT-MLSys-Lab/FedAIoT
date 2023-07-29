@@ -214,11 +214,12 @@ def add_label_noise(analysis, dataset_name, client_datasets, num_classes):
     _, error_rate, error_var = analysis.split('-')
     error_rate = float(error_rate)
     error_var = float(error_var)
-    print('Adding noise ...')
+    print(f'Adding noise ...{error_rate}')
     client_datasets, noise_percentages = inject_label_noise_with_matrix(client_datasets,
                                                                         num_classes,
                                                                         confusion_matrix,
                                                                         error_rate)
+    print(noise_percentages)
     return client_datasets, noise_percentages
 
 
