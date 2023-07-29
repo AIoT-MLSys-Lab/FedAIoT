@@ -137,6 +137,8 @@ class Experiment:
 
         if 'label_noise' in analysis and dataset_name in ['wisdm_phone', 'wisdm_watch', 'widar', 'ut_har', 'casas',
                                                           'epic_sounds', 'emognition']:
+            _, error_rate, error_var = analysis.split('-')
+            wandb.config['error_rate'] = error_rate
             client_datasets, noise_percentages = add_label_noise(analysis, dataset_name, client_datasets, num_classes)
             plot_noise_distribution(noise_percentages)
 
