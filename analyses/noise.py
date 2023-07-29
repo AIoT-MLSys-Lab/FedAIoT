@@ -103,7 +103,7 @@ def inject_label_noise_with_matrix(client_datasets, class_num, confusion_matrix,
             current_label_true = original_data[index][1]
             change_prob = confusion_matrix[current_label_true]
             # to speed up the noise injection, we only change the label whose centralized accuracy is lower than 80%
-            if np.max(change_prob) < 0.80:
+            if np.max(change_prob) < 0.95:
                 indices_to_change.append(index)
             if len(indices_to_change) == num_elements_to_change:
                 break
