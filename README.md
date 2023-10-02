@@ -1,9 +1,23 @@
 # FedAIoT: A Federated Learning Benchmark for Artificial Intelligence of Things
 
 ## Table of Contents
-1. [Requirements](#requirements)
-2. [Datasets](#datasets)
-3. [Usage](#usage)
+1. [Introduction](#introduction)
+2. [Requirements](#requirements)
+3. [Datasets](#datasets)
+4. [Usage](#usage)
+
+## Introduction
+This repository holds the source code for the `FedAIoT: A Federated Learning Benchmark for Artificial Intelligence of Things`. *FedAIot* is a benchmarking tool for evaluating federated learning algorithms against real IoT datasets and deployment scenarios. *FedAIot* contains datasets from different IoT Platforms encompassing different data modalities and deployment scenarios.
+<p align="center">
+<img src="figures/overview.png" alt="comparison" width="90%">
+</p>
+
+*FedAIot* provides an end-to-end data processing and partitioning pipeline as well as a list of IoT-friendly models. For evaluation, users can evaluate federated learning algorithms with different partitioning schemes and client sampling ratios as well as run quantized training and label noise simulation.
+
+<p align="center">
+<img src="figures/pipeline.png" alt="comparison" width="90%">
+</p>
+
 
 ## Requirements
 
@@ -14,7 +28,8 @@ pip install -r requirements.txt
 
 The FedAIoT benchmark includes the following datasets:
 
-- WISDM
+- WISDM-W
+- WISDM-P
 - UT HAR
 - WIDAR
 - VisDrone
@@ -24,7 +39,7 @@ The FedAIoT benchmark includes the following datasets:
 
 Each dataset folder contains the `download.py` script to download the dataset.
 
-[//]: # ()
+
 [//]: # (## Non-IID Partition Scheme)
 
 [//]: # (The partition classes split a large dataset into a list of smaller datasets. Several Partition methods are implemented. )
@@ -92,17 +107,16 @@ Before running, we need to set the environment variables `num_gpus` and `num_tra
 Take WISDM-W as an example. To train a centralized model on WISDM-W:
 
 ```
-num_gpus=1 num_trainers_per_gpu=1 CUDA_VISIBLE_DEVICES=0 python distributed_main.py main --dataset_name wisdm_watch --model LSTM_NET --client_num_in_total 1 --client_num_per_round 1 --partition_type central --alpha 0.1 --lr 0.01 --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 200 --batch_size 128 --analysis baseline --trainer BaseTrainer --amp --watch_metric accuracy
+num_gpus=1 num_trainers_per_gpu=1 CUDA_VISIBLE_DEVICES=0 python distributed_main.py main --dataset_name wisdm_watch --model LSTM_NET --client_num_in_total 1 --client_num_per_round 1 --partition_type central --alpha 0.1 --lr 0.01 --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 200 --batch_size 128 --analysis baseline --trainer BaseTrainer --watch_metric accuracy
 ```
 
 To train a federated model on WISDM-W with FedAvg and `10%` client sampling rate under high data heterogeneity:
 
 ```
-num_gpus=1 num_trainers_per_gpu=1 CUDA_VISIBLE_DEVICES=0 python distributed_main.py main --dataset_name wisdm_watch --model LSTM_NET --client_num_in_total 80 --client_num_per_round 8 --partition_type dirichlet --alpha 0.1 --lr 0.01 --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 400 --batch_size 32 --analysis baseline --trainer BaseTrainer --amp --watch_metric accuracy
+num_gpus=1 num_trainers_per_gpu=1 CUDA_VISIBLE_DEVICES=0 python distributed_main.py main --dataset_name wisdm_watch --model LSTM_NET --client_num_in_total 80 --client_num_per_round 8 --partition_type dirichlet --alpha 0.1 --lr 0.01 --server_optimizer sgd --server_lr 1 --test_frequency 5 --comm_round 400 --batch_size 32 --analysis baseline --trainer BaseTrainer --watch_metric accuracy
 ```
 
 For the full list of parameters, run:
 ```
 python distributed_main.py main --help
 ```
-For more example commands, please see [here](commands.md)
