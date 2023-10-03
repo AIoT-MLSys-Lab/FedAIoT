@@ -40,6 +40,10 @@ FedAIoT currently includes the following eight IoT datasets:
 - AEP
 - EPIC-SOUNDS
 
+<p align="center">
+<img src="figures/datasets.png" alt="comparison" width="90%">
+</p>
+
 Each dataset folder contains the `download.py` script to download the dataset.
 
 
