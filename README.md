@@ -29,7 +29,7 @@ pip install -r requirements.txt
 ```
 ## Datasets
 
-The FedAIoT benchmark includes the following datasets:
+FedAIoT currently includes the following eight IoT datasets:
 
 - WISDM-W
 - WISDM-P
