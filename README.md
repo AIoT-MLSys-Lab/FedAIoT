@@ -7,12 +7,12 @@
 4. [Usage](#usage)
 
 ## Introduction
-This repository holds the source code for the `FedAIoT: A Federated Learning Benchmark for Artificial Intelligence of Things`. *FedAIot* is a benchmarking tool for evaluating federated learning algorithms against real IoT datasets and deployment scenarios. *FedAIot* contains datasets from different IoT Platforms encompassing different data modalities and deployment scenarios.
+This repository holds the source code for the `FedAIoT: A Federated Learning Benchmark for Artificial Intelligence of Things`. FedAIot is a benchmarking tool for evaluating federated learning algorithms against real IoT datasets and deployment scenarios. *FedAIot* contains datasets from different IoT Platforms encompassing different data modalities and deployment scenarios.
 <p align="center">
 <img src="figures/overview.png" alt="comparison" width="90%">
 </p>
 
-*FedAIot* provides an end-to-end data processing and partitioning pipeline as well as a list of IoT-friendly models. For evaluation, users can evaluate federated learning algorithms with different partitioning schemes and client sampling ratios as well as run quantized training and label noise simulation.
+FedAIot provides an end-to-end data processing and partitioning pipeline as well as a list of IoT-friendly models. For evaluation, users can evaluate federated learning algorithms with different partitioning schemes and client sampling ratios as well as run quantized training and label noise simulation.
 
 <p align="center">
 <img src="figures/pipeline.png" alt="comparison" width="90%">
