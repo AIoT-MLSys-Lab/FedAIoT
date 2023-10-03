@@ -31,17 +31,8 @@ pip install -r requirements.txt
 
 FedAIoT currently includes the following eight IoT datasets:
 
-- WISDM-W
-- WISDM-P
-- UT HAR
-- WIDAR
-- VisDrone
-- CASAS
-- AEP
-- EPIC-SOUNDS
-
 <p align="center">
-<img src="figures/datasets.png" alt="comparison" width="90%">
+<img src="figures/datasets.png" alt="comparison" width="100%">
 </p>
 
 Each dataset folder contains the `download.py` script to download the dataset.
