@@ -11,11 +11,14 @@ Despite the significant relevance of federated learning (FL) in the realm of IoT
 
 This repository holds the source code for [FedAIoT: A Federated Learning Benchmark for Artificial Intelligence of Things](https://arxiv.org/abs/2310.00109). FedAIot is a benchmarking tool for evaluating FL algorithms against real IoT datasets. FedAIoT contains eight well-chosen datasets collected from a wide range of authentic IoT devices from smartwatch, smartphone and Wi-Fi routers, to drones, smart home sensors, and head-mounted device that either have already become an indispensable part of people’s daily lives or are driving emerging applications. These datasets encapsulate a variety of unique IoT-specific data modalities such as wireless data, drone images, and smart home sensor data (e.g., motion, energy, humidity, temperature) that have not been explored in existing FL benchmarks. 
 
+
 <p align="center">
 <img src="figures/overview.png" alt="comparison" width="90%">
 </p>
 
+
 To facilitate the community benchmark the performance of the datasets and ensure reproducibility, FedAIoT includes a unified end-to-end FL framework for AIoT, which covers the complete FLfor- AIoT pipeline: from non-independent and identically distributed (non-IID) data partitioning, IoT-specific data preprocessing, to IoT-friendly models, FL hyperparameters, and IoT-factor emulator. 
+
 
 <p align="center">
 <img src="figures/pipeline.png" alt="comparison" width="90%">
