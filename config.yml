@@ -23,4 +23,5 @@ amp = false
 analysis= baseline
 class_mixup=1.0
 entity=fedaiot
-project=ray_fl_dev_v5
+project=ray_fl_dev_scaffold
+aggregator=scaffold

@@ -1,7 +1,7 @@
 import numpy as np
-import ray
 import torch
 from tqdm import tqdm
+import ray
 
 
 def distributed_fedavg(aggregator,
@@ -16,6 +16,7 @@ def distributed_fedavg(aggregator,
     # Select random clients for each round
     sampled_clients_idx = np.random.choice(len(client_dataset_refs), client_num_per_round, replace=False)
     print(f"selected clients: {sampled_clients_idx}")
+
     # Initialize lists to store updates, weights, and local metrics
     all_updates, all_weights, all_local_metrics = [], [], []
 
@@ -60,9 +61,8 @@ def distributed_fedavg(aggregator,
         torch.cuda.empty_cache()
 
     # Calculate the average local metrics
-    local_metrics_avg = {key: sum(metric[key] for metric in all_local_metrics if metric[key]) / len(all_local_metrics)
+    local_metrics_avg = {key: sum(metric[key] for metric in all_local_metrics if key in metric) / len(all_local_metrics)
                          for key in all_local_metrics[0]}
-
     print(all_local_metrics)
 
     # Update the global model using the aggregator
@@ -73,6 +73,10 @@ def distributed_fedavg(aggregator,
     scheduler.step()
 
     return local_metrics_avg, global_model, scheduler
+
+
+def initialize_control_variates(global_model: torch.nn.Module):
+    return {k: torch.zeros_like(v) for k, v in global_model.state_dict().items()}
 
 
 def basic_fedavg(aggregator,

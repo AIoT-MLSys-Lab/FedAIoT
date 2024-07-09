@@ -8,16 +8,19 @@ import fire
 import numpy as np
 import pandas as pd
 import ray
-import torch.cuda
 from tqdm import tqdm
 
 import wandb
 from aggregators.base import FederatedAveraging
+from aggregators.fedprox import FederatedProximal
+from aggregators.scaffold import Scaffold
 from loaders.utils import get_confusion_matrix_plot
 from models.ut_har import *
 from models.utils import load_model
 from strategies.base_fl import distributed_fedavg
+from strategies.scaffold import distributed_scaffold
 from trainers.distributed_base import DistributedTrainer
+from trainers.scaffold import ScaffoldTrainer
 from trainers.ultralytics_distributed import DistributedUltralyticsYoloTrainer
 from utils import WarmupScheduler, read_system_variable, get_default_yolo_hyperparameters, set_seed, load_dataset, \
     get_partition, plot_data_distributions, add_label_noise, plot_noise_distribution
@@ -35,20 +38,13 @@ set_seed(seed)
 print(f'Seed is {seed}')
 YOLO_HYPERPARAMETERS = get_default_yolo_hyperparameters()
 
-
-ray.init(ignore_reinit_error=True, num_cpus=num_gpus * num_trainers_per_gpu + 1, num_gpus=num_gpus)
+ray.init(ignore_reinit_error=True, num_cpus=num_gpus * num_trainers_per_gpu, num_gpus=num_gpus)
 print("success")
 
 
 class Experiment:
-    # def __init__(self, cfg):
-    #     print(f'reading config from {cfg}')
-    #     config.read(cfg)
-    #     print(config['DEFAULT'].get('partition_type'))
-
     def main(self,
-             model: str =
-             [run_config['DEFAULT'].get('model', 'models/resnet_group_norm.pt'), print(run_config['DEFAULT'])][0],
+             model: str = run_config['DEFAULT'].get('model', 'models/resnet_group_norm.pt'),
              dataset_name: str = run_config['DEFAULT'].get('dataset', 'cifar10'),
              data_dir: str = run_config['DEFAULT'].get('data_dir', '../data/'),
              client_num_in_total: int = run_config['DEFAULT'].getint('client_num_in_total', 2118),
@@ -67,12 +63,12 @@ class Experiment:
              partition_type: str = run_config['DEFAULT'].get('partition_type', 'dirichlet'),
              amp: bool = run_config['DEFAULT'].getboolean('amp', False),
              analysis: str = run_config['DEFAULT'].get('analysis', 'baseline'),
-             trainer: str = run_config['DEFAULT'].get('trainer', 'BaseTrainer'),
              class_mixup: float = run_config['DEFAULT'].getfloat('class_mixup', 1),
              precision: str = run_config['DEFAULT'].get('precision', 'float32'),
              watch_metric: str = run_config['DEFAULT'].get('watch_metric', 'f1_score'),
              milestones: list[int] = None,
-             resume: str = ""
+             resume: str = "",
+             aggregator: str = run_config['DEFAULT'].get('aggregator', 'base')
              ):
         """
         :param model: neural network used in training
@@ -99,9 +95,8 @@ class Experiment:
         :param precision:
         :param analysis:
         :param seed
-
-        Args:
-            milestones:
+        :param aggregator
+        :param milestones:
         """
         if milestones is None:
             milestones = []
@@ -132,6 +127,12 @@ class Experiment:
         wandb.config['num_samples'] = len(dataset['train'])
         client_datasets = partition(dataset['train'])
         wandb.config['seed'] = seed
+        if "yolo" in  model:
+            trainer = "ultralytics"
+        elif  aggregator == "scaffold":
+            trainer = "scaffold"
+        else:
+            trainer = "BaseTrainer"
         partition_name = partition_type if partition_type != 'dirichlet' else f'{partition_type}_{alpha}'
         plot_data_distributions(dataset, dataset_name, client_datasets, num_classes)
 
@@ -153,7 +154,7 @@ class Experiment:
             global_model.load_state_dict(torch.load(f'weights/{resume}/best_model.pt'))
         global_model = global_model.cpu()
 
-        if trainer == 'BaseTrainer':
+        if trainer == 'BaseTrainer' or trainer == "scaffold":
             from scorers.classification_evaluator import evaluate
             if dataset_name in {'energy'}:
                 from scorers.regression_evaluator import evaluate
@@ -169,7 +170,11 @@ class Experiment:
             scheduler = torch.optim.lr_scheduler.MultiStepLR(torch.optim.SGD(global_model.parameters(), lr=lr),
                                                              milestones=milestones,
                                                              gamma=0.1)
-            client_trainers = [DistributedTrainer.remote(model_name=model,
+            if trainer == "BaseTrainer":
+                Trainer = DistributedTrainer
+            else:
+                Trainer = ScaffoldTrainer
+            client_trainers = [Trainer.remote(model_name=model,
                                                          dataset_name=dataset_name,
                                                          state_dict=global_model.state_dict(),
                                                          criterion=criterion,
@@ -181,8 +186,6 @@ class Experiment:
                                                          **{'lr': lr, 'milestones': milestones, 'gamma': 0.1}) for _ \
                                in range(min(client_num_per_round, num_gpus * num_trainers_per_gpu))]
         elif trainer == 'ultralytics':
-            # pt = torch.load('yolov8n.pt.1')
-            # global_model.load(pt)
             base_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 torch.optim.SGD(global_model.parameters(), lr=lr), T_0=10, T_mult=2,
                 eta_min=1e-6)
@@ -204,11 +207,24 @@ class Experiment:
         else:
             raise ValueError(f'Client trainer of type {trainer} not found')
 
-        aggregator = FederatedAveraging(global_model=global_model,
-                                        server_optimizer=server_optimizer,
-                                        server_lr=server_lr,
-                                        server_momentum=0.9,
-                                        eps=1e-3)
+        if aggregator == 'base':
+            aggregator = FederatedAveraging(global_model=global_model,
+                                            server_optimizer=server_optimizer,
+                                            server_lr=server_lr,
+                                            server_momentum=0.9,
+                                            eps=1e-3)
+        elif aggregator == "fedprox":
+            aggregator = FederatedProximal(global_model=global_model,
+                                           server_optimizer='sgd',
+                                           server_lr=server_lr,
+                                           server_momentum=0.9,
+                                           eps=1e-3)
+        elif aggregator == "scaffold":
+            aggregator = Scaffold(global_model=global_model,
+                                  server_optimizer='sgd',
+                                  server_lr=server_lr,
+                                  server_momentum=0.9,
+                                  eps=1e-3)
 
         best_metric = -np.inf
         best_model = None
@@ -244,15 +260,26 @@ class Experiment:
                 wandb.log(metrics, step=round_idx)
                 print(f'metric round_idx = {watch_metric}: {v}')
 
-            local_metrics_avg, global_model, scheduler = distributed_fedavg(aggregator,
-                                                                            client_trainers,
-                                                                            client_dataset_refs,
-                                                                            client_num_per_round,
-                                                                            global_model,
-                                                                            round_idx,
-                                                                            scheduler,
-                                                                            device,
-                                                                            precision)
+            if isinstance(aggregator, Scaffold):
+                local_metrics_avg, global_model, scheduler = distributed_scaffold(aggregator,
+                                                                                  client_trainers,
+                                                                                  client_dataset_refs,
+                                                                                  client_num_per_round,
+                                                                                  global_model,
+                                                                                  round_idx,
+                                                                                  scheduler,
+                                                                                  device,
+                                                                                  precision)
+            else:
+                local_metrics_avg, global_model, scheduler = distributed_fedavg(aggregator,
+                                                                                client_trainers,
+                                                                                client_dataset_refs,
+                                                                                client_num_per_round,
+                                                                                global_model,
+                                                                                round_idx,
+                                                                                scheduler,
+                                                                                device,
+                                                                                precision)
             print(local_metrics_avg)
             wandb.log(local_metrics_avg, step=round_idx)
 
