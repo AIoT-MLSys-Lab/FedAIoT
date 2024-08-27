@@ -122,6 +122,9 @@ For the full list of parameters, run:
 python distributed_main.py main --help
 ```
 
+## Citation
+
+```
 @article{
 alam2024fedaiot,
 title={Fed{AI}oT: A Federated Learning Benchmark for Artificial Intelligence of Things},
@@ -131,3 +134,4 @@ year={2024},
 url={https://openreview.net/forum?id=fYNw9Ukljz},
 note={Dataset Certification}
 }
+```
