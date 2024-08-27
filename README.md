@@ -126,12 +126,11 @@ python distributed_main.py main --help
 
 ```
 @article{
-alam2024fedaiot,
-title={Fed{AI}oT: A Federated Learning Benchmark for Artificial Intelligence of Things},
-author={Samiul Alam and Tuo Zhang and Tiantian Feng and Hui Shen and Zhichao Cao and Dong Zhao and Jeonggil Ko and Kiran Somasundaram and Shrikanth Narayanan and Salman Avestimehr and Mi Zhang},
-journal={Journal of Data-centric Machine Learning Research},
-year={2024},
-url={https://openreview.net/forum?id=fYNw9Ukljz},
-note={Dataset Certification}
+  alam2024fedaiot,
+  title={Fed{AI}oT: A Federated Learning Benchmark for Artificial Intelligence of Things},
+  author={Samiul Alam and Tuo Zhang and Tiantian Feng and Hui Shen and Zhichao Cao and Dong Zhao and Jeonggil Ko and Kiran Somasundaram and Shrikanth Narayanan and Salman Avestimehr and Mi Zhang},
+  journal={Journal of Data-centric Machine Learning Research},
+  year={2024},
+  url={https://openreview.net/forum?id=fYNw9Ukljz},
 }
 ```
