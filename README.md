@@ -5,6 +5,7 @@
 2. [Requirements](#requirements)
 3. [Datasets](#datasets)
 4. [Usage](#usage)
+5. [Citation](#citation)
 
 ## Introduction
 Despite the significant relevance of federated learning (FL) in the realm of IoT, most existing FL works are conducted on well-known datasets such as CIFAR-10 and CIFAR-100. These datasets, however, do not originate from authentic IoT devices and thus fail to capture the unique modalities and inherent challenges associated with real-world IoT data. This notable discrepancy underscores a strong need for an IoT-oriented FL benchmark to fill this critical gap.
